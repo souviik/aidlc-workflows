@@ -178,6 +178,16 @@ def main() -> None:
     parser.add_argument("--scorer-model", default=None, help="Bedrock model for scoring (default: from config YAML)")
     parser.add_argument("--model", default=None, help="Model to use with the CLI adapter (e.g., claude-sonnet-4)")
     parser.add_argument(
+        "--kiro-dist", type=Path, default=None,
+        help=(
+            "Path to the .kiro/ distribution directory for v2 agentic execution "
+            "(e.g. dist/kiro/.kiro). When set, the kiro adapter copies this into "
+            "the workspace so Kiro picks up skills, agents, hooks, and protocols "
+            "natively and invokes /skill aidlc-orchestrator. "
+            "Defaults to dist/kiro/.kiro relative to the repo root if it exists."
+        ),
+    )
+    parser.add_argument(
         "--verbose", "-v", action="store_true",
         help="Enable verbose logging output",
     )
@@ -269,6 +279,21 @@ def main() -> None:
         rules_local_path=rules_local_path,
     )
 
+    # Resolve kiro_dist_path — explicit arg, then auto-detect from repo root
+    kiro_dist_path: Path | None = None
+    if args.kiro_dist:
+        kiro_dist_path = Path(args.kiro_dist).resolve()
+    else:
+        # Auto-detect: look for dist/kiro/.kiro two levels up from the evaluator root
+        candidate = REPO_ROOT.parent.parent / "dist" / "kiro" / ".kiro"
+        if candidate.is_dir():
+            kiro_dist_path = candidate
+
+    if kiro_dist_path:
+        print(f"  Kiro v2 distribution: {kiro_dist_path}")
+    else:
+        print("  Kiro v2 distribution: not found — using v1 steering-file mode")
+
     result, eval_rc = run_cli_evaluation(
         adapter=adapter,
         vision_path=vision_path,
@@ -285,6 +310,7 @@ def main() -> None:
         rules_source=rules_source,
         rules_ref=rules_ref,
         rules_repo=rules_repo,
+        kiro_dist_path=kiro_dist_path,
     )
 
     if not result.success:

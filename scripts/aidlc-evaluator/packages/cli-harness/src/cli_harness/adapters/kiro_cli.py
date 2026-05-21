@@ -3,8 +3,27 @@
 Uses ``kiro-cli chat`` with ``--no-interactive`` and ``--trust-all-tools``
 flags for fully headless execution.
 
-AIDLC rules are injected through Kiro's steering-file mechanism by writing
-them to ``.kiro/steering/aidlc-rules.md`` inside the workspace.
+## v2 agentic execution (default when kiro_dist_path is set)
+
+When ``AdapterConfig.kiro_dist_path`` points to the ``.kiro/`` distribution
+directory (e.g. ``dist/kiro/.kiro``), the adapter:
+
+1. Copies the entire ``.kiro/`` tree into the workspace root so Kiro picks up
+   skills, agents, hooks, and protocols natively.
+2. Sends ``/skill aidlc-orchestrator\\n<vision content>`` as the initial prompt,
+   activating the v2 orchestrator skill.
+3. Detects completion by checking for an ``intent-*/state/intent-state.md`` file
+   containing ``status: complete``.
+
+The process-check-hook.json in ``.kiro/hooks/`` fires automatically after every
+``invokeSubAgent`` call, enforcing ``process_checker.js`` without any evaluator
+intervention.
+
+## v1 legacy execution (when kiro_dist_path is not set)
+
+Falls back to the original steering-file mechanism: concatenates all rule
+``.md`` files into ``.kiro/steering/aidlc-rules.md`` and sends a monolithic
+AIDLC executor prompt.
 """
 
 from __future__ import annotations
@@ -19,7 +38,7 @@ from pathlib import Path
 
 from cli_harness.adapter import AdapterConfig, AdapterResult, CLIAdapter
 from cli_harness.normalizer import normalize_output
-from cli_harness.prompt_template import render_prompt
+from cli_harness.prompt_template import render_prompt, render_v2_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -92,26 +111,41 @@ class KiroCLIAdapter(CLIAdapter):
                 shutil.copy2(config.tech_env_path, workspace / "tech-env.md")
                 _log(f"Copied tech-env: {config.tech_env_path}")
 
-            # Inject AIDLC rules via steering files
-            steering_dir = workspace / ".kiro" / "steering"
-            steering_dir.mkdir(parents=True, exist_ok=True)
+            is_v2 = config.kiro_dist_path is not None and config.kiro_dist_path.is_dir()
 
-            rules_path = config.rules_path
-            if rules_path.is_dir():
-                parts = []
-                for rule_file in sorted(rules_path.rglob("*.md")):
-                    parts.append(rule_file.read_text(encoding="utf-8"))
-                rules_content = "\n\n".join(parts)
+            if is_v2:
+                # v2: copy the full .kiro/ distribution so Kiro picks up skills,
+                # agents, hooks, and protocol files natively.
+                kiro_dest = workspace / ".kiro"
+                if kiro_dest.exists():
+                    shutil.rmtree(kiro_dest)
+                shutil.copytree(config.kiro_dist_path, kiro_dest)
+                _log(f"Installed .kiro/ distribution from {config.kiro_dist_path}")
+
+                # Build v2 prompt: /skill aidlc-orchestrator + vision content
+                vision_content = config.vision_path.read_text(encoding="utf-8")
+                prompt = config.prompt_template or render_v2_prompt(vision_content)
+                _log("Using v2 agentic execution (/skill aidlc-orchestrator)")
             else:
-                rules_content = rules_path.read_text(encoding="utf-8")
+                # v1 legacy: inject rules as a single steering file
+                steering_dir = workspace / ".kiro" / "steering"
+                steering_dir.mkdir(parents=True, exist_ok=True)
 
-            (steering_dir / "aidlc-rules.md").write_text(
-                rules_content, encoding="utf-8"
-            )
-            _log(f"Injected AIDLC rules ({len(rules_content)} chars)")
+                rules_path = config.rules_path
+                if rules_path.is_dir():
+                    parts = []
+                    for rule_file in sorted(rules_path.rglob("*.md")):
+                        parts.append(rule_file.read_text(encoding="utf-8"))
+                    rules_content = "\n\n".join(parts)
+                else:
+                    rules_content = rules_path.read_text(encoding="utf-8")
 
-            # Build the prompt
-            prompt = config.prompt_template or render_prompt()
+                (steering_dir / "aidlc-rules.md").write_text(
+                    rules_content, encoding="utf-8"
+                )
+                _log(f"Injected AIDLC rules ({len(rules_content)} chars) via steering file")
+                prompt = config.prompt_template or render_prompt()
+                _log("Using v1 legacy execution (steering file)")
 
             # Base command flags
             base_flags = [
@@ -177,18 +211,33 @@ class KiroCLIAdapter(CLIAdapter):
 
                     _log(f"Turn {turn} exited with code {process.returncode}")
 
-                    # Check if aidlc-docs looks complete (has construction phase files)
+                    # Check completion — v2 and v1 use different indicators
                     aidlc_docs_dir = workspace / "aidlc-docs"
                     if aidlc_docs_dir.is_dir():
-                        has_construction = any(
-                            (aidlc_docs_dir / "construction").rglob("*.md")
-                        ) if (aidlc_docs_dir / "construction").is_dir() else False
                         file_count = sum(1 for _ in aidlc_docs_dir.rglob("*") if _.is_file())
-                        _log(f"  aidlc-docs: {file_count} files, construction={'yes' if has_construction else 'no'}")
 
-                        if has_construction:
-                            _log("Construction phase detected — workflow complete")
-                            break
+                        if is_v2:
+                            # v2: look for intent-state.md with "status: complete"
+                            complete = False
+                            for state_file in aidlc_docs_dir.rglob("intent-state.md"):
+                                content = state_file.read_text(encoding="utf-8")
+                                if "status: complete" in content or "— | complete" in content.lower():
+                                    complete = True
+                                    break
+                            _log(f"  aidlc-docs: {file_count} files, intent-state={'complete' if complete else 'in-progress'}")
+                            if complete:
+                                _log("intent-state.md shows complete — workflow done")
+                                break
+                        else:
+                            # v1: look for construction phase files
+                            has_construction = (
+                                any((aidlc_docs_dir / "construction").rglob("*.md"))
+                                if (aidlc_docs_dir / "construction").is_dir() else False
+                            )
+                            _log(f"  aidlc-docs: {file_count} files, construction={'yes' if has_construction else 'no'}")
+                            if has_construction:
+                                _log("Construction phase detected — workflow complete")
+                                break
                     else:
                         _log("  aidlc-docs/ not yet created")
 

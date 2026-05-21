@@ -121,6 +121,7 @@ def run_cli_evaluation(
     rules_source: str = "git",
     rules_ref: str = "main",
     rules_repo: str = "https://github.com/awslabs/aidlc-workflows.git",
+    kiro_dist_path: Path | None = None,
 ) -> tuple[AdapterResult, int]:
     """Run the full CLI evaluation pipeline.
 
@@ -155,6 +156,7 @@ def run_cli_evaluation(
         model=model,
         aws_profile=profile,
         timeout_seconds=timeout_seconds,
+        kiro_dist_path=kiro_dist_path,
     )
 
     print(f"\nRunning {adapter.name} adapter...")

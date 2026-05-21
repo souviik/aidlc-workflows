@@ -110,6 +110,22 @@ not needed, but always continue to the next stage.
 """
 
 
+V2_ORCHESTRATOR_PROMPT = """\
+/skill aidlc-orchestrator
+
+{intent}
+"""
+
+
+def render_v2_prompt(intent: str) -> str:
+    """Render the v2 agentic prompt that invokes the aidlc-orchestrator skill.
+
+    Args:
+        intent: The raw development intent (vision content or a one-line summary).
+    """
+    return V2_ORCHESTRATOR_PROMPT.format(intent=intent.strip())
+
+
 def render_prompt(vision_path: str = "vision.md", tech_env_path: str = "tech-env.md") -> str:
     r"""Render the AIDLC prompt with customized file paths.
 

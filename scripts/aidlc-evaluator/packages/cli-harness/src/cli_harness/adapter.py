@@ -19,6 +19,10 @@ class AdapterConfig:
     model: str | None = None
     aws_profile: str | None = None
     timeout_seconds: int = 7200  # 2 hours max
+    # Path to the .kiro/ distribution directory (v2 agentic execution).
+    # When set, the kiro adapter copies this into the workspace so Kiro
+    # picks up the skill, agent, hook, and protocol files natively.
+    kiro_dist_path: Path | None = None
 
 
 @dataclass
