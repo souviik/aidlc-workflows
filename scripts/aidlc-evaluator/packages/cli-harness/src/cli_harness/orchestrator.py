@@ -14,7 +14,7 @@ from cli_harness.adapter import AdapterConfig, AdapterResult, CLIAdapter
 from cli_harness.normalizer import normalize_output, _count_workspace_files, _count_doc_files
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]  # packages/cli-harness/src/cli_harness -> repo root
+REPO_ROOT = Path(__file__).resolve().parents[4]  # packages/cli-harness/src/cli_harness -> evaluator root
 
 # Input files that adapters copy into workspace for the CLI tool to read.
 # These should be cleaned out after the run so workspace only has generated code.
@@ -231,7 +231,7 @@ def run_cli_evaluation(
 
     # 5. Run evaluation pipeline (stages 2-6)
     eval_cmd = [
-        sys.executable, str(REPO_ROOT / "run_evaluation.py"),
+        sys.executable, str(REPO_ROOT / "scripts" / "run_evaluation.py"),
         "--evaluate-only", str(aidlc_docs),
         "--golden", str(golden_docs),
         "--results", str(output_dir / "qualitative-comparison.yaml"),
