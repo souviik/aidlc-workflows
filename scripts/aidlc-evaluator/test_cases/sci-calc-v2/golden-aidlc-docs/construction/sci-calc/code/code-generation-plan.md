@@ -1,109 +1,79 @@
 # Code Generation Plan — sci-calc
 
-**Skill:** code-generation:sci-calc
-**Unit:** sci-calc
-**Date:** 2025-01-27
-**Status:** Approved
+## Overview
+
+Generate a complete Scientific Calculator API implementation following a layered approach:
+- **Layer 1 (Models):** Pydantic request/response models, error definitions, custom types
+- **Layer 2 (Engine):** Pure business logic functions per domain
+- **Layer 3 (Routes + App):** FastAPI routes, exception handlers, application assembly
+- **Layer 4 (Tests + Config):** Integration tests, test fixtures, project configuration
 
 ---
 
-## Objective
+## Layer 1: Models & Errors
 
-Generate the complete source code for the Scientific Calculator API as specified in the vision document, technical environment document, requirements.md, nfr-requirements.md, and tech-stack-decisions.md. Implement all 29 functional requirements with proper error handling, logging, testing, and project configuration.
+- [x] `workspace/src/sci_calc/__init__.py` — Package init with version
+- [x] `workspace/src/sci_calc/models/__init__.py` — Models package init
+- [x] `workspace/src/sci_calc/models/errors.py` — Error codes enum, exception classes, HTTP status mapping
+- [x] `workspace/src/sci_calc/models/requests.py` — Pydantic request models with FiniteFloat validator
+- [x] `workspace/src/sci_calc/models/responses.py` — Response envelope models and helper functions
 
-## Design Decisions (from Clarification)
+**Verification:** All models importable, no runtime errors, FiniteFloat rejects inf/nan.
 
-| # | Decision | Choice |
-|---|----------|--------|
-| Q1 | Error handling | Custom exception hierarchy with global handler |
-| Q2 | Logging | ASGI middleware for request/response logging |
-| Q3 | Request models | Shared base models (~8-10 Pydantic models) |
-| Q4 | Engine decomposition | Single math_engine.py per tech-env.md |
-| Q5 | Test organization | Combined per-category files (unit + integration) |
-| Q6 | Input validation | Custom FiniteFloat annotated type |
-| Q7 | Response models | Pydantic response models for envelopes |
+---
 
-## Plan Steps
+## Layer 2: Business Logic (Engine)
 
-### Step 1: Project Configuration
-- [x] Write `pyproject.toml` with hatchling build backend, all dependencies, ruff config, pytest config
-- [x] Target: Python >=3.13, deps: fastapi, uvicorn, pydantic; dev deps: pytest, pytest-asyncio, pytest-cov, httpx, ruff
+- [x] `workspace/src/sci_calc/engine/__init__.py` — Engine package init
+- [x] `workspace/src/sci_calc/engine/arithmetic.py` — add, subtract, multiply, divide, modulo, abs, negate
+- [x] `workspace/src/sci_calc/engine/powers.py` — power, sqrt, cbrt, nth_root, square
+- [x] `workspace/src/sci_calc/engine/trigonometry.py` — All trig operations with angle conversion
+- [x] `workspace/src/sci_calc/engine/logarithmic.py` — ln, log10, log2, log, exp
+- [x] `workspace/src/sci_calc/engine/statistics.py` — mean, median, mode, stdev, variance, etc.
+- [x] `workspace/src/sci_calc/engine/constants.py` — Constants registry
+- [x] `workspace/src/sci_calc/engine/conversions.py` — Unit conversion logic
 
-### Step 2: Models Layer (`src/sci_calc/models/`)
-- [x] `requests.py` — FiniteFloat type, SingleOperand, DualOperand, TrigInput, Atan2Input, PowerInput, NthRootInput, StatisticsInput, ConversionInput, LogInput
-- [x] `responses.py` — SuccessResponse, ErrorResponse, ErrorDetail models
-- [x] `__init__.py` — re-exports
+**Verification:** Each engine module importable. Domain checks raise CalculatorError subclasses.
 
-### Step 3: Engine Layer (`src/sci_calc/engine/`)
-- [x] `math_engine.py` — Pure functions for all 7 operation categories (arithmetic, powers, trigonometry, logarithmic, statistics, constants, conversions)
-- [x] Custom exceptions: CalculatorError, DivisionByZeroError, DomainError, OverflowError
-- [x] `__init__.py` — re-exports
+---
 
-### Step 4: Routes Layer (`src/sci_calc/routes/`)
-- [x] `arithmetic.py` — POST /api/v1/arithmetic/{operation}
-- [x] `powers.py` — POST /api/v1/powers/{operation}
-- [x] `trigonometry.py` — POST /api/v1/trigonometry/{operation}
-- [x] `logarithmic.py` — POST /api/v1/logarithmic/{operation}
-- [x] `statistics.py` — POST /api/v1/statistics/{operation}
-- [x] `constants.py` — GET /api/v1/constants, GET /api/v1/constants/{name}
-- [x] `conversions.py` — POST /api/v1/conversions/{category}
-- [x] `__init__.py` — router aggregation
+## Layer 3: API Routes & Application
 
-### Step 5: Application Layer (`src/sci_calc/`)
-- [x] `app.py` — FastAPI app creation, CORS middleware, logging middleware, exception handlers, router inclusion, health endpoint
-- [x] `__init__.py` — version constant
+- [x] `workspace/src/sci_calc/routes/__init__.py` — Routes package init
+- [x] `workspace/src/sci_calc/routes/arithmetic.py` — Arithmetic endpoint handlers
+- [x] `workspace/src/sci_calc/routes/powers.py` — Powers endpoint handlers
+- [x] `workspace/src/sci_calc/routes/trigonometry.py` — Trigonometry endpoint handlers
+- [x] `workspace/src/sci_calc/routes/logarithmic.py` — Logarithmic endpoint handlers
+- [x] `workspace/src/sci_calc/routes/statistics.py` — Statistics endpoint handlers
+- [x] `workspace/src/sci_calc/routes/constants.py` — Constants endpoint handlers
+- [x] `workspace/src/sci_calc/routes/conversions.py` — Conversions endpoint handlers
+- [x] `workspace/src/sci_calc/app.py` — FastAPI app with exception handlers and router includes
 
-### Step 6: Tests (`tests/`)
-- [x] `conftest.py` — AsyncClient fixture
-- [x] `test_arithmetic.py` — unit + integration tests for all arithmetic operations
-- [x] `test_powers.py` — unit + integration tests for power operations
-- [x] `test_trigonometry.py` — unit + integration tests for trig operations
-- [x] `test_logarithmic.py` — unit + integration tests for log operations
-- [x] `test_statistics.py` — unit + integration tests for statistics operations
-- [x] `test_constants.py` — unit + integration tests for constants
-- [x] `test_conversions.py` — unit + integration tests for unit conversions
-- [x] `__init__.py`
+**Verification:** App starts without errors. All routes registered.
 
-### Step 7: Verification
-- [x] All files follow prescribed project structure from tech-env.md
-- [x] Ruff compliance (line-length 100, target py313)
-- [x] All 29 FRs have corresponding test coverage
-- [x] Error envelope format consistent across all error types
+---
 
-## File Manifest
+## Layer 4: Tests & Configuration
 
-| # | File | Purpose |
-|---|------|---------|
-| 1 | `pyproject.toml` | Project config, deps, tool config |
-| 2 | `src/sci_calc/__init__.py` | Package init, version |
-| 3 | `src/sci_calc/app.py` | FastAPI app, middleware, handlers |
-| 4 | `src/sci_calc/models/__init__.py` | Models package |
-| 5 | `src/sci_calc/models/requests.py` | Request Pydantic models |
-| 6 | `src/sci_calc/models/responses.py` | Response Pydantic models |
-| 7 | `src/sci_calc/engine/__init__.py` | Engine package |
-| 8 | `src/sci_calc/engine/math_engine.py` | All math logic |
-| 9 | `src/sci_calc/routes/__init__.py` | Routes package |
-| 10 | `src/sci_calc/routes/arithmetic.py` | Arithmetic endpoints |
-| 11 | `src/sci_calc/routes/powers.py` | Powers endpoints |
-| 12 | `src/sci_calc/routes/trigonometry.py` | Trig endpoints |
-| 13 | `src/sci_calc/routes/logarithmic.py` | Log endpoints |
-| 14 | `src/sci_calc/routes/statistics.py` | Statistics endpoints |
-| 15 | `src/sci_calc/routes/constants.py` | Constants endpoints |
-| 16 | `src/sci_calc/routes/conversions.py` | Conversions endpoints |
-| 17 | `tests/__init__.py` | Tests package |
-| 18 | `tests/conftest.py` | Test fixtures |
-| 19 | `tests/test_arithmetic.py` | Arithmetic tests |
-| 20 | `tests/test_powers.py` | Powers tests |
-| 21 | `tests/test_trigonometry.py` | Trig tests |
-| 22 | `tests/test_logarithmic.py` | Log tests |
-| 23 | `tests/test_statistics.py` | Statistics tests |
-| 24 | `tests/test_constants.py` | Constants tests |
-| 25 | `tests/test_conversions.py` | Conversions tests |
+- [x] `workspace/pyproject.toml` — Project configuration with all dependencies
+- [x] `workspace/tests/__init__.py` — Tests package init
+- [x] `workspace/tests/conftest.py` — Shared fixtures (async client)
+- [x] `workspace/tests/test_arithmetic.py` — Arithmetic operation tests
+- [x] `workspace/tests/test_powers.py` — Powers operation tests
+- [x] `workspace/tests/test_trigonometry.py` — Trigonometry operation tests
+- [x] `workspace/tests/test_logarithmic.py` — Logarithmic operation tests
+- [x] `workspace/tests/test_statistics.py` — Statistics operation tests
+- [x] `workspace/tests/test_constants.py` — Constants operation tests
+- [x] `workspace/tests/test_conversions.py` — Conversions operation tests
 
-## Success Criteria
+**Verification:** `uv run pytest` passes. All error paths covered.
 
-- All tests pass with `uv run pytest`
-- >= 90% line coverage
-- Results match Python `math` stdlib to <= 1 ULP
-- All error codes produce correct HTTP status and envelope format
-- Project structure matches tech-env.md exactly
+---
+
+## Completion Criteria
+
+- All 41 FRs implemented
+- All 37 BRs implemented
+- Structured error envelopes for all error codes
+- Tests cover happy path + every error path
+- Code passes `ruff check` and `ruff format`

@@ -2,26 +2,22 @@
 
 ## Classification
 
-Greenfield single-component utility — matches Example B from composition rules.
+This intent matches **Example B** from the composition rules: a simple single-component utility (calculator API). The workflow is: `requirements-analysis → code-generation → build-and-test`.
 
 ## Inception Phase
 
-- **requirements-analysis** — INCLUDED. Captures the full operation set, input/output schemas, error semantics, and precision guarantees. Always-on skill.
-- **reverse-engineering** — SKIPPED. Greenfield; no existing codebase or integration targets.
-- **user-stories** — SKIPPED. Single actor (API client), single happy-path pattern repeated across operations. Requirements doc captures everything needed.
-- **wireframes** — SKIPPED. No UI; pure API.
-- **application-design** — SKIPPED. Single component (one FastAPI service). No multi-component orchestration or boundary decisions.
-- **units-generation** — SKIPPED. Single unit ("sci-calc") is trivially determined from the intent scope.
+- **Requirements analysis** — INCLUDED. Always-on skill. Captures the operation categories, input/output contracts, error semantics, and edge cases (division by zero, domain errors, precision requirements) before code is written.
+- **Reverse-engineering** — SKIPPED. Pure greenfield project with no existing code and no external integration targets.
+- **User stories** — SKIPPED. Single actor (API consumer), single interaction pattern (HTTP request → compute → JSON response). The operations are mathematically well-defined; stories would add no value beyond what requirements capture.
+- **Wireframes** — SKIPPED. No UI; this is an API-only project.
+- **Application design** — SKIPPED. Single component (one FastAPI service). No inter-service orchestration or component boundaries to define.
+- **Units generation** — SKIPPED. Single unit (the API service itself). Unit name is `scientific-calculator-api`.
 
 ## Construction Phase
 
-- **code-generation (--unit sci-calc)** — INCLUDED. Generates the implementation, tests, and project configuration. Always-on skill.
-- **functional-design** — SKIPPED. The math operations are fully defined by the requirements; no separate domain model or business-rule layer is warranted for a calculator utility.
-- **nfr-assessment** — SKIPPED. Tech stack is pre-specified (Python 3.13, FastAPI, uv, pytest, ruff). NFR targets (≥90% coverage, ≤1 ULP precision) are already defined in the vision. Defaults are adequate.
-- **nfr-design** — SKIPPED. No complex non-functional patterns needed beyond standard FastAPI middleware.
-- **infrastructure-design** — SKIPPED. No deployment infrastructure in scope for this MVP.
-- **build-and-test** — EXCLUDED. Skill is not yet implemented (🚧 in catalogue).
-
-## Summary
-
-Two-skill workflow: requirements-analysis → code-generation. This is the minimal viable pipeline for a greenfield single-component utility where the domain logic IS the requirements.
+- **Functional design** — SKIPPED. The "business logic" is mathematics — universally defined operations (sin, cos, log, pow, etc.). Requirements capture the operation set; no additional domain modelling is needed.
+- **NFR assessment** — SKIPPED. Stateless API with standard FastAPI patterns provides adequate defaults. No special performance targets, security constraints, or scalability requirements stated in the intent.
+- **NFR design** — SKIPPED. No custom caching, connection pooling, or resilience patterns needed for a stateless calculator.
+- **Infrastructure design** — SKIPPED. No persistence, no deployment architecture stated, no infrastructure-as-code needed. The intent focuses on the API code itself.
+- **Code generation** — INCLUDED. Always-on skill. Produces the FastAPI application, route handlers, mathematical operation modules, Pydantic models, tests, and project configuration (pyproject.toml, uv setup).
+- **Build and test** — INCLUDED. Always-on skill. Installs dependencies, runs the test suite, verifies the application starts correctly, and validates code quality.

@@ -1,39 +1,31 @@
 # Intent Bootstrap Questions
 
-human-clarification: false — questions auto-answered by builder.
+Skill: intent-bootstrap
+Status: auto-answered
+Date: 2025-01-21T15:42:00Z
 
-## Q1: org-ai-kb Location
+---
+
+## Q1: org-ai-kb location
 
 [Question]: Where should the org-ai-kb directory be located?
-[Recommendation]: Use the default `workspace/org-ai-kb/` as no alternative was specified and this is a greenfield project.
-[Answer]: workspace/org-ai-kb/
+[Recommendation]: Use the default location at the project root level. Since this is a greenfield project with workspace/ as the workspace root, aidlc-docs/ at project root is appropriate.
+[Answer]: Use aidlc-docs/ at the project root (default).
 
-## Q2: Intent Slug
+## Q2: Slug confirmation
 
-[Question]: The auto-generated slug is `scientific-calculator-api`. Is this acceptable?
-[Recommendation]: The slug accurately captures the project name and follows kebab-case convention.
-[Answer]: scientific-calculator-api (accepted as-is)
+[Question]: Is the auto-generated slug 'scientific-calculator-api' acceptable?
+[Recommendation]: The slug accurately reflects the project name from the vision document.
+[Answer]: Confirmed: scientific-calculator-api
 
 ## Q3: Classification
 
 [Question]: Is this a greenfield, brownfield, or mixed project?
-[Recommendation]: Greenfield — the workspace is empty and there is no existing codebase to integrate with.
-[Answer]: greenfield
+[Recommendation]: The workspace directory is empty and the vision document describes building a new API from scratch.
+[Answer]: Greenfield
 
-## Q4: Repos in Scope
+## Q4: Intent type
 
-[Question]: Which repositories are in scope?
-[Recommendation]: None — this is a new project being built from scratch.
-[Answer]: None (greenfield)
-
-## Q5: Codekb / Reverse Engineering
-
-[Question]: Is codekb hydration or reverse engineering needed?
-[Recommendation]: Not applicable for a greenfield project with no existing codebase.
-[Answer]: Not needed (n/a)
-
-## Q6: Intent Type
-
-[Question]: What is the intent type?
-[Recommendation]: Feature — this is the creation of a new API from scratch as an MVP.
-[Answer]: feature
+[Question]: What is the intent type (feature, bug fix, migration, refactor, prototype)?
+[Recommendation]: The vision describes building a complete new API — this is a feature intent.
+[Answer]: Feature

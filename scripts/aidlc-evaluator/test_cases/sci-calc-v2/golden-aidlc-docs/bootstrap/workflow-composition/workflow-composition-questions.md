@@ -1,49 +1,61 @@
 # Workflow Composition Questions
 
+Skill: workflow-composition
+Status: auto-answered
+Date: 2025-01-21T15:43:00Z
+
+---
+
 ## Q1: Should reverse-engineering run?
 
-[Context]: The bootstrap-context.md classifies this as greenfield with no repos in scope and no integration targets.
-[Recommendation]: No. Greenfield project with an empty workspace — nothing to reverse-engineer.
-[Answer]: No — skip reverse-engineering. Greenfield, no existing code.
+[Question]: Should the reverse-engineering skill be included?
+[Recommendation]: No. This is a greenfield project with no existing codebase and no integration targets. Bootstrap context confirms codekb is n/a and reverse-engineering is not needed.
+[Answer]: No — greenfield, no existing code or integration targets.
 
-## Q2: Should user-stories be included?
+## Q2: Should user-stories run?
 
-[Context]: This is a single-actor (API client), single-component utility. The operations are well-defined in the vision: arithmetic, trigonometry, logarithms, powers, statistics, constants, unit conversions.
-[Recommendation]: No. One obvious actor, straightforward happy paths defined by the operations list. User stories would not add value beyond what requirements-analysis captures.
-[Answer]: No — skip user-stories. Single actor, well-defined operations; requirements doc suffices.
+[Question]: Should the user-stories skill be included?
+[Recommendation]: No. This is a single-component utility API with one obvious actor (the API consumer) performing straightforward math operations. The requirements document will capture the operations sufficiently. Per the right-sizing principle, user stories add no meaningful value for a calculator API.
+[Answer]: No — single actor, operations are self-evident from requirements.
 
-## Q3: Should application-design be included?
+## Q3: Should application-design run?
 
-[Context]: Single component (one FastAPI service). No multi-component orchestration needed.
-[Recommendation]: No. Single component, no orchestration, no component boundary decisions to make.
-[Answer]: No — skip application-design. Single component, no orchestration.
+[Question]: Should the application-design skill be included?
+[Recommendation]: No. This is a single-component stateless API with no orchestration, no inter-service communication, and no component boundaries to define. The service is the component.
+[Answer]: No — single component, no orchestration needed.
 
-## Q4: Should units-generation be included?
+## Q4: Should units-generation run?
 
-[Context]: There is only one unit (the calculator API). Trivially one unit; no fan-out needed.
-[Recommendation]: No. Single unit named "sci-calc" is trivially determined from the intent.
-[Answer]: No — skip units-generation. Single unit (sci-calc) is trivially determined.
+[Question]: Should the units-generation skill be included?
+[Recommendation]: No. There is exactly one unit (the calculator API service). Units-generation is for multi-component systems that need work decomposed into independent units.
+[Answer]: No — single unit (sci-calc), trivially determined.
 
-## Q5: Should functional-design be included?
+## Q5: Should functional-design run?
 
-[Context]: The business logic IS the math operations. The requirements document will capture the full operation list, inputs, outputs, and error cases.
-[Recommendation]: No. The logic is the requirements — no separate domain model or business rules layer needed for a calculator.
-[Answer]: No — skip functional-design. Math operations are fully specified by requirements.
+[Question]: Should the functional-design skill be included?
+[Recommendation]: No. For a calculator API, the business logic IS the requirements — mathematical operations with well-defined inputs and outputs. There are no complex domain entities or business rules that warrant a separate functional design document. Per Example B: "logic is the requirements."
+[Answer]: No — math operations are fully specified by requirements; no complex domain logic.
 
-## Q6: Should nfr-assessment, nfr-design, or infrastructure-design be included?
+## Q6: Should nfr-assessment or nfr-design run?
 
-[Context]: This is an MVP utility API. No complex NFR decisions beyond what's already stated (≥90% coverage, ≤1 ULP precision). No deployment infrastructure needed for the scope of this intent.
-[Recommendation]: No. Defaults are fine; tech stack is already specified in tech-env.md.
-[Answer]: No — skip all three. NFR defaults are adequate; tech stack is pre-specified.
+[Question]: Should NFR skills be included?
+[Recommendation]: No. This is a stateless utility API. Default NFR posture (correctness, reasonable error handling) is adequate. No special performance, scalability, or security concerns beyond standard FastAPI defaults.
+[Answer]: No — defaults are sufficient for a stateless utility API.
 
-## Q7: Should build-and-test be included?
+## Q7: Should infrastructure-design run?
 
-[Context]: The build-and-test skill is marked 🚧 (not yet implemented) in the catalogue.
-[Recommendation]: No. The skill is not yet implemented.
-[Answer]: No — exclude build-and-test (not implemented).
+[Question]: Should infrastructure-design be included?
+[Recommendation]: No. The intent doesn't mention deployment, cloud infrastructure, or container orchestration. The project is a single FastAPI service run locally with uvicorn. Infrastructure can be added later if needed.
+[Answer]: No — no deployment infrastructure specified; local development only.
 
-## Q8: Any per-skill flag overrides needed?
+## Q8: Should wireframes run?
 
-[Context]: requirements-analysis and code-generation both have default flags (all true). No reason to override for this straightforward intent.
-[Recommendation]: No overrides. Default flags are appropriate.
-[Answer]: No flag overrides needed. Use defaults for both skills.
+[Question]: Should the wireframes skill be included?
+[Recommendation]: No. This is a pure HTTP API with no user interface.
+[Answer]: No — API only, no UI.
+
+## Q9: Any per-skill flag overrides?
+
+[Question]: Should any per-skill flags be overridden from their defaults?
+[Recommendation]: No overrides needed. The three selected skills (requirements-analysis, code-generation, build-and-test) should use their default flags (human-clarification: true, plan-creation: true, plan-verification: true, artefact-verification: true) since the user requested driving the full workflow.
+[Answer]: No overrides — use default flags for all selected skills.

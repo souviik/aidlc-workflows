@@ -1,192 +1,171 @@
 # Requirements — Scientific Calculator API
 
-intent: scientific-calculator-api
-skill: requirements-analysis
-created: 2025-01-22T11:20:00Z
-
----
-
-## 1. Intent Summary
+## Intent Summary
 
 | Attribute | Value |
-|---|---|
-| Type | New feature (greenfield) |
-| Scope | Single component — stateless HTTP API |
-| Complexity | Moderate — multiple operation categories (7 route groups), structured error handling, comprehensive test coverage |
-| Classification | Greenfield |
-| Affected Repos | None (new project) |
-| Target Location | `workspace/sci-calc/` |
-
-The Scientific Calculator API is a stateless HTTP service that performs scientific math operations — arithmetic, trigonometry, logarithms, powers & roots, statistics, constants retrieval, and unit conversions — exposed via versioned JSON endpoints. It prioritises correctness, precision, and clear error reporting.
+|-----------|-------|
+| **Type** | New feature (greenfield) |
+| **Scope** | Single component |
+| **Complexity** | Medium |
+| **Classification** | Greenfield — no existing codebase |
+| **Affected Repos** | None (new project) |
 
 ---
 
-## 2. Functional Requirements
+## Functional Requirements
 
-### Arithmetic
+### Arithmetic Operations
 
-| ID | Requirement |
-|---|---|
-| FR-1 | The API SHALL expose `POST /api/v1/arithmetic/add` accepting `{"a": N, "b": N}` and returning their sum. |
-| FR-2 | The API SHALL expose `POST /api/v1/arithmetic/subtract` accepting `{"a": N, "b": N}` and returning `a - b`. |
-| FR-3 | The API SHALL expose `POST /api/v1/arithmetic/multiply` accepting `{"a": N, "b": N}` and returning their product. |
-| FR-4 | The API SHALL expose `POST /api/v1/arithmetic/divide` accepting `{"a": N, "b": N}` and returning `a / b`. If `b == 0`, the API SHALL return HTTP 400 with error code `DIVISION_BY_ZERO`. |
-| FR-5 | The API SHALL expose `POST /api/v1/arithmetic/modulo` accepting `{"a": N, "b": N}` and returning `a % b`. If `b == 0`, the API SHALL return HTTP 400 with error code `DIVISION_BY_ZERO`. |
-| FR-6 | The API SHALL expose `POST /api/v1/arithmetic/abs` accepting `{"a": N}` and returning the absolute value of `a`. |
-| FR-7 | The API SHALL expose `POST /api/v1/arithmetic/negate` accepting `{"a": N}` and returning `-a`. |
+**FR-1:** The API SHALL expose `POST /api/v1/arithmetic/{operation}` for operations: `add`, `subtract`, `multiply`, `divide`, `modulo`, `abs`, `negate`.
 
-### Powers & Roots
+**FR-2:** Binary arithmetic operations (`add`, `subtract`, `multiply`, `divide`, `modulo`) SHALL accept a JSON body `{"a": N, "b": N}` where N is a finite number.
 
-| ID | Requirement |
-|---|---|
-| FR-8 | The API SHALL expose `POST /api/v1/powers/power` accepting `{"base": N, "exponent": N}` and returning `base ** exponent`. |
-| FR-9 | The API SHALL expose `POST /api/v1/powers/sqrt` accepting `{"a": N}` and returning the square root of `a`. If `a < 0`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-10 | The API SHALL expose `POST /api/v1/powers/cbrt` accepting `{"a": N}` and returning the cube root of `a`. |
-| FR-11 | The API SHALL expose `POST /api/v1/powers/square` accepting `{"a": N}` and returning `a²`. |
-| FR-12 | The API SHALL expose `POST /api/v1/powers/nth_root` accepting `{"a": N, "n": int}` and returning the n-th root of `a`. If `a < 0` and `n` is even, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
+**FR-3:** Unary arithmetic operations (`abs`, `negate`) SHALL accept a JSON body `{"a": N}` where N is a finite number.
+
+**FR-4:** Division by zero (`divide` or `modulo` with `b = 0`) SHALL return error code `DIVISION_BY_ZERO` with HTTP 400.
+
+### Powers and Roots
+
+**FR-5:** The API SHALL expose `POST /api/v1/powers/{operation}` for operations: `power`, `sqrt`, `cbrt`, `nth_root`, `square`.
+
+**FR-6:** `power` SHALL accept `{"base": N, "exponent": N}` and return `base ** exponent`.
+
+**FR-7:** `sqrt`, `cbrt`, `square` SHALL accept `{"a": N}`.
+
+**FR-8:** `nth_root` SHALL accept `{"a": N, "n": int}` and return the nth root of a.
+
+**FR-9:** `sqrt` SHALL return `DOMAIN_ERROR` (400) when `a < 0`.
+
+**FR-10:** `nth_root` SHALL return `DOMAIN_ERROR` (400) when `a < 0` and `n` is even.
 
 ### Trigonometry
 
-| ID | Requirement |
-|---|---|
-| FR-13 | The API SHALL expose `POST /api/v1/trigonometry/sin` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` (default: `"radians"`) and returning sin(a). |
-| FR-14 | The API SHALL expose `POST /api/v1/trigonometry/cos` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` (default: `"radians"`) and returning cos(a). |
-| FR-15 | The API SHALL expose `POST /api/v1/trigonometry/tan` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` (default: `"radians"`) and returning tan(a). |
-| FR-16 | The API SHALL expose `POST /api/v1/trigonometry/asin` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning arcsin(a). If `a < -1` or `a > 1`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-17 | The API SHALL expose `POST /api/v1/trigonometry/acos` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning arccos(a). If `a < -1` or `a > 1`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-18 | The API SHALL expose `POST /api/v1/trigonometry/atan` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning arctan(a). |
-| FR-19 | The API SHALL expose `POST /api/v1/trigonometry/atan2` accepting `{"y": N, "x": N, "angle_unit": "radians"|"degrees"}` (default: `"radians"`) and returning atan2(y, x). |
-| FR-20 | The API SHALL expose `POST /api/v1/trigonometry/sinh` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning sinh(a). |
-| FR-21 | The API SHALL expose `POST /api/v1/trigonometry/cosh` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning cosh(a). |
-| FR-22 | The API SHALL expose `POST /api/v1/trigonometry/tanh` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning tanh(a). |
-| FR-23 | The API SHALL expose `POST /api/v1/trigonometry/asinh` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning asinh(a). |
-| FR-24 | The API SHALL expose `POST /api/v1/trigonometry/acosh` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning acosh(a). If `a < 1`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-25 | The API SHALL expose `POST /api/v1/trigonometry/atanh` accepting `{"a": N, "angle_unit": "radians"|"degrees"}` and returning atanh(a). If `a <= -1` or `a >= 1`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-26 | For all trigonometry endpoints, when `angle_unit` is `"degrees"`, the API SHALL convert input angles from degrees to radians before computation and convert output angles from radians to degrees for inverse functions. |
+**FR-11:** The API SHALL expose `POST /api/v1/trigonometry/{operation}` for operations: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`.
+
+**FR-12:** Standard trig operations SHALL accept `{"a": N, "angle_unit": "radians"|"degrees"}` with `"radians"` as default.
+
+**FR-13:** `atan2` SHALL accept `{"y": N, "x": N, "angle_unit": "radians"|"degrees"}` with `"radians"` as default.
+
+**FR-14:** `asin` and `acos` SHALL return `DOMAIN_ERROR` (400) when input is outside [-1, 1].
+
+**FR-15:** `acosh` SHALL return `DOMAIN_ERROR` (400) when `a < 1`.
+
+**FR-16:** `atanh` SHALL return `DOMAIN_ERROR` (400) when `a` is outside (-1, 1).
 
 ### Logarithms
 
-| ID | Requirement |
-|---|---|
-| FR-27 | The API SHALL expose `POST /api/v1/logarithmic/ln` accepting `{"a": N}` and returning the natural logarithm of `a`. If `a <= 0`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-28 | The API SHALL expose `POST /api/v1/logarithmic/log10` accepting `{"a": N}` and returning log base 10 of `a`. If `a <= 0`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-29 | The API SHALL expose `POST /api/v1/logarithmic/log2` accepting `{"a": N}` and returning log base 2 of `a`. If `a <= 0`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-30 | The API SHALL expose `POST /api/v1/logarithmic/log` accepting `{"a": N, "base": N}` and returning log base `base` of `a`. If `a <= 0`, `base <= 0`, or `base == 1`, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-31 | The API SHALL expose `POST /api/v1/logarithmic/exp` accepting `{"a": N}` and returning `e^a`. If the result exceeds the representable float64 range, the API SHALL return HTTP 400 with error code `OVERFLOW`. |
+**FR-17:** The API SHALL expose `POST /api/v1/logarithmic/{operation}` for operations: `ln`, `log10`, `log2`, `log`, `exp`.
+
+**FR-18:** `ln`, `log10`, `log2` SHALL accept `{"a": N}` and return `DOMAIN_ERROR` (400) when `a <= 0`.
+
+**FR-19:** `log` SHALL accept `{"a": N, "base": N}` and return `DOMAIN_ERROR` (400) when `a <= 0`, `base <= 0`, or `base = 1`.
+
+**FR-20:** `exp` SHALL accept `{"a": N}` and return `e ** a`. If the result overflows, return `OVERFLOW` (400).
 
 ### Statistics
 
-| ID | Requirement |
-|---|---|
-| FR-32 | The API SHALL expose `POST /api/v1/statistics/mean` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the arithmetic mean. |
-| FR-33 | The API SHALL expose `POST /api/v1/statistics/median` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the median value. |
-| FR-34 | The API SHALL expose `POST /api/v1/statistics/mode` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the mode. On ties, the API SHALL return the smallest mode. |
-| FR-35 | The API SHALL expose `POST /api/v1/statistics/stdev` accepting `{"values": [N, ...]}` (minimum 2 elements) and returning the sample standard deviation. If fewer than 2 elements are provided, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-36 | The API SHALL expose `POST /api/v1/statistics/variance` accepting `{"values": [N, ...]}` (minimum 2 elements) and returning the sample variance. If fewer than 2 elements are provided, the API SHALL return HTTP 400 with error code `DOMAIN_ERROR`. |
-| FR-37 | The API SHALL expose `POST /api/v1/statistics/pstdev` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the population standard deviation. |
-| FR-38 | The API SHALL expose `POST /api/v1/statistics/pvariance` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the population variance. |
-| FR-39 | The API SHALL expose `POST /api/v1/statistics/min` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the minimum value. |
-| FR-40 | The API SHALL expose `POST /api/v1/statistics/max` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the maximum value. |
-| FR-41 | The API SHALL expose `POST /api/v1/statistics/sum` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the sum of all values. |
-| FR-42 | The API SHALL expose `POST /api/v1/statistics/count` accepting `{"values": [N, ...]}` (minimum 1 element) and returning the number of elements. |
+**FR-21:** The API SHALL expose `POST /api/v1/statistics/{operation}` for operations: `mean`, `median`, `mode`, `stdev`, `variance`, `pstdev`, `pvariance`, `min`, `max`, `sum`, `count`.
+
+**FR-22:** All statistics operations SHALL accept `{"values": [N, ...]}`.
+
+**FR-23:** All statistics operations SHALL require at least 1 element. An empty array SHALL return `INVALID_INPUT` (422).
+
+**FR-24:** `stdev` and `variance` SHALL require at least 2 elements. Arrays with fewer than 2 elements SHALL return `INVALID_INPUT` (422).
+
+**FR-25:** `pstdev` and `pvariance` SHALL require at least 1 element.
+
+**FR-26:** `mode` SHALL return the smallest mode when there are ties.
+
+**FR-27:** Statistics operations SHALL use the Python `statistics` module directly and return its exact results.
 
 ### Constants
 
-| ID | Requirement |
-|---|---|
-| FR-43 | The API SHALL expose `GET /api/v1/constants` returning a JSON object mapping all constant names to their values. Finite constants (pi, e, tau, golden_ratio, sqrt2, ln2, ln10) SHALL be returned as JSON numbers. Non-finite constants (inf, nan) SHALL be returned as JSON string representations (`"Infinity"`, `"NaN"`). |
-| FR-44 | The API SHALL expose `GET /api/v1/constants/{name}` returning the named constant's value in the standard success envelope. Non-finite constants SHALL use string representations in the `result` field. If the name is not recognized, the API SHALL return HTTP 404 with error code `NOT_FOUND`. |
+**FR-28:** The API SHALL expose `GET /api/v1/constants/{name}` returning the named constant's value.
+
+**FR-29:** The API SHALL expose `GET /api/v1/constants` returning all constants as a map.
+
+**FR-30:** Supported constants SHALL be: `pi`, `e`, `tau`, `inf`, `nan`, `golden_ratio`, `sqrt2`, `ln2`, `ln10`.
 
 ### Unit Conversions
 
-| ID | Requirement |
-|---|---|
-| FR-45 | The API SHALL expose `POST /api/v1/conversions/angle` accepting `{"value": N, "from_unit": str, "to_unit": str}` and converting between degrees, radians, and gradians using hardcoded float64 conversion factors. |
-| FR-46 | The API SHALL expose `POST /api/v1/conversions/temperature` accepting `{"value": N, "from_unit": str, "to_unit": str}` and converting between celsius, fahrenheit, and kelvin using hardcoded float64 conversion formulas. |
-| FR-47 | The API SHALL expose `POST /api/v1/conversions/length` accepting `{"value": N, "from_unit": str, "to_unit": str}` and converting between meters, feet, inches, centimeters, millimeters, kilometers, miles, and yards using hardcoded float64 conversion factors. |
-| FR-48 | The API SHALL expose `POST /api/v1/conversions/weight` accepting `{"value": N, "from_unit": str, "to_unit": str}` and converting between kilograms, pounds, ounces, grams, milligrams, tonnes, and stones using hardcoded float64 conversion factors. |
+**FR-31:** The API SHALL expose `POST /api/v1/conversions/{category}` accepting `{"value": N, "from_unit": "...", "to_unit": "..."}`.
+
+**FR-32:** Supported categories and units SHALL be:
+- **angle**: degrees, radians, gradians
+- **temperature**: celsius, fahrenheit, kelvin
+- **length**: meters, feet, inches, centimeters, millimeters, kilometers, miles, yards
+- **weight**: kilograms, pounds, ounces, grams, milligrams, tonnes, stones
+
+**FR-33:** An unrecognised unit string within a valid category SHALL return `INVALID_INPUT` (422) with a descriptive message indicating the unrecognised unit.
 
 ### Health Check
 
-| ID | Requirement |
-|---|---|
-| FR-49 | The API SHALL expose `GET /health` returning `{"status": "ok", "version": "0.1.0"}` with HTTP 200. |
+**FR-34:** The API SHALL expose `GET /health` returning `{"status": "ok", "version": "0.1.0"}`.
+
+### Response Format
+
+**FR-35:** All successful responses SHALL use the envelope: `{"status": "ok", "operation": "<name>", "inputs": {...}, "result": <value>}`.
+
+**FR-36:** All error responses SHALL use the envelope: `{"status": "error", "operation": "<name>", "inputs": {...}, "error": {"code": "<CODE>", "message": "..."}}`.
+
+**FR-37:** The API SHALL support the following error codes with corresponding HTTP statuses:
+- `INVALID_INPUT` → 422
+- `DIVISION_BY_ZERO` → 400
+- `DOMAIN_ERROR` → 400
+- `OVERFLOW` → 400
+- `NOT_FOUND` → 404
+
+### Input Validation
+
+**FR-38:** The API SHALL reject `inf`, `-inf`, and `nan` as input values with `INVALID_INPUT` (422). Only finite numeric values are accepted.
+
+**FR-39:** FastAPI/Pydantic schema validation errors SHALL be intercepted and returned in the structured error envelope format with code `INVALID_INPUT` (422).
 
 ### Error Handling
 
-| ID | Requirement |
-|---|---|
-| FR-50 | The API SHALL reject all special floating-point input values (NaN, Infinity, -Infinity) at the Pydantic validation layer, returning HTTP 422 with error code `INVALID_INPUT` and a descriptive message including the offending field. |
-| FR-51 | The API SHALL return HTTP 400 with error code `DIVISION_BY_ZERO` when a division or modulo operation receives a zero divisor. |
-| FR-52 | The API SHALL return HTTP 400 with error code `DOMAIN_ERROR` when an input falls outside the mathematical domain of the operation (e.g., sqrt of negative, log of non-positive, asin of value outside [-1, 1]). |
-| FR-53 | The API SHALL return HTTP 400 with error code `OVERFLOW` when a computation result exceeds the representable float64 range. |
-| FR-54 | The API SHALL catch all unexpected exceptions, log them at ERROR level, and return a generic structured error response with error code `INTERNAL_ERROR` — never exposing a bare HTTP 500 to the client. |
+**FR-40:** The API SHALL never return a bare HTTP 500. All math-domain and overflow errors SHALL be caught and translated to the structured error envelope.
 
-### Response Envelope
-
-| ID | Requirement |
-|---|---|
-| FR-55 | All API responses SHALL use a consistent JSON envelope: success responses contain `{"status": "ok", "operation": "<name>", "inputs": {...}, "result": <value>}` and error responses contain `{"status": "error", "operation": "<name>", "inputs": {...}, "error": {"code": "<CODE>", "message": "..."}}`. |
+**FR-41:** Unexpected exceptions SHALL be logged at ERROR level and return a generic `INTERNAL_ERROR` response in the structured error envelope.
 
 ---
 
-## 3. Non-Functional Requirements
+## Non-Functional Requirements
 
-| ID | Requirement | Metric |
-|---|---|---|
-| NFR-1 | Response latency for any single operation SHALL be below p95 threshold. | p95 < 50 ms |
-| NFR-2 | Test suite SHALL achieve minimum line coverage. | ≥ 90% line coverage |
-| NFR-3 | Mathematical results SHALL agree with Python `math` stdlib within tolerance. | ≤ 1 ULP difference |
-| NFR-4 | Application startup time SHALL be fast enough for container orchestration. | < 2 seconds |
-| NFR-5 | Maximum request body size SHALL be limited to prevent abuse. | 1 MB |
-| NFR-6 | The project SHALL require Python 3.13.x. | `requires-python = ">=3.13"` in pyproject.toml |
-| NFR-7 | API versioning SHALL use URL path prefix. | All endpoints under `/api/v1/` |
-| NFR-8 | Logging SHALL use Python standard logging with JSON formatting; INFO for requests, ERROR for exceptions. | No DEBUG in production |
-| NFR-9 | Validation errors SHALL include Pydantic field-level detail in the error message. | Format: "Validation failed: field X - details" with `INVALID_INPUT` code |
+**NFR-1:** Response latency (p95) SHALL be less than 50ms for any single operation.
 
----
+**NFR-2:** Test coverage SHALL be >= 90% line coverage.
 
-## 4. Assumptions
+**NFR-3:** Floating-point results for `math`-based operations SHALL match the Python `math` stdlib to <= 1 ULP (unit in the last place).
 
-> **Note:** The following are assumptions, not confirmed facts. They may require validation during construction.
+**NFR-4:** Statistics results SHALL match the Python `statistics` stdlib implementation exactly (use the module directly).
 
-1. **ASSUMPTION:** The API is stateless — no database, session store, or persistent state is required between requests.
-2. **ASSUMPTION:** The API will run as a single-process uvicorn instance (no multi-worker or distributed deployment needed for MVP).
-3. **ASSUMPTION:** Python's `math` stdlib provides sufficient precision for all scientific operations — no third-party math libraries are needed.
-4. **ASSUMPTION:** Unit conversion factors are well-known, exact values (where mathematically exact) hardcoded as float64 constants — no external data sources or configuration files needed.
-5. **ASSUMPTION:** The 1 MB request body limit (provided by the server framework) is sufficient to cap statistics list sizes without an explicit element-count limit.
-6. **ASSUMPTION:** All numeric inputs are IEEE 754 double-precision (float64) values, excluding the special values NaN, Infinity, and -Infinity which are rejected at validation.
-7. **ASSUMPTION:** The initial release version is `0.1.0` as stated in the vision.
+**NFR-5:** Application startup time SHALL be less than 2 seconds.
+
+**NFR-6:** Maximum request body size SHALL be limited to 1 MB.
+
+**NFR-7:** All endpoints SHALL accept and return `application/json` exclusively.
+
+**NFR-8:** API SHALL be versioned via URL prefix (`/api/v1/...`). Initial release is v0.1.0 following semver.
 
 ---
 
-## 5. Out of Scope
+## Assumptions
 
-The following capabilities are explicitly excluded from this intent's scope:
-
-1. **Factorial operation** — Not listed in the vision's operations; may be added in a future version.
-2. **Persistent storage or user accounts** — The API is stateless with no data persistence.
-3. **Graphical or terminal UI** — API-only; no frontend.
-4. **Symbolic / computer-algebra (CAS) capabilities** — Numeric computation only.
-5. **Arbitrary-precision or big-number libraries** beyond Python's standard `decimal` module.
-6. **Authentication, rate-limiting, or production hardening** — Not required for MVP.
-7. **Expression evaluation from string input** — No expression parser; each operation is a dedicated endpoint.
-8. **Multi-worker or distributed deployment** — Single-process uvicorn for MVP.
-9. **Custom precision configuration** — All operations use float64; no user-selectable precision.
+1. **Stateless architecture** — The API has no shared mutable state. Each request is independently processed. No concurrency concerns exist beyond framework defaults (uvicorn's async handling).
+2. **Python stdlib sufficiency** — The Python `math` and `statistics` standard library modules provide sufficient precision and functionality. No third-party math libraries are needed.
+3. **Single deployment unit** — The application is a single FastAPI service. No multi-service orchestration is required.
+4. **Development scope** — This is a development/demonstration API. Production hardening (authentication, rate-limiting, TLS termination) is explicitly excluded.
+5. **IEEE 754 double precision** — All numeric values use Python's native `float` (IEEE 754 double precision). No arbitrary-precision arithmetic is required.
 
 ---
 
-## Traceability
+## Out of Scope
 
-| Vision Feature | Requirements |
-|---|---|
-| Arithmetic | FR-1 through FR-7 |
-| Powers and roots | FR-8 through FR-12 |
-| Trigonometry | FR-13 through FR-26 |
-| Logarithms | FR-27 through FR-31 |
-| Statistics | FR-32 through FR-42 |
-| Constants | FR-43, FR-44 |
-| Unit conversions | FR-45 through FR-48 |
-| Health-check endpoint | FR-49 |
-| Structured error responses | FR-50 through FR-55 |
-| Unit and integration tests | NFR-2 |
+1. Persistent storage or user accounts
+2. Graphical or terminal UI
+3. Symbolic / computer-algebra (CAS) capabilities
+4. Arbitrary-precision or big-number libraries beyond Python's standard `decimal` module
+5. Authentication, rate-limiting, or production hardening
+6. Expression evaluation from string input
+7. Deployment infrastructure (Docker, Kubernetes, CI/CD pipelines)
+8. API documentation hosting (Swagger UI is auto-generated by FastAPI but not a deliverable)

@@ -2,18 +2,16 @@
 
 ## Classification
 
-**Greenfield**
-
-Rationale: The intent statement explicitly declares "Greenfield project." The workspace directory is empty with no pre-existing code, repositories, or infrastructure. All code and configuration will be created from scratch.
+**Greenfield** — The workspace directory is empty. There is no existing codebase. The project will be built from scratch.
 
 ## Repos in Scope
 
-None.
+None — this is a new project. The target repository (sci-calc) will be created during construction.
 
 ## Codekb Status
 
-N/A — no existing repositories to catalogue.
+N/A — no existing repositories to index.
 
-## Reverse-Engineering Decision
+## Reverse-Engineering
 
-Not needed — there is no existing codebase to reverse-engineer. This is a pure greenfield build.
+Not needed — greenfield project with no existing code to analyse.
