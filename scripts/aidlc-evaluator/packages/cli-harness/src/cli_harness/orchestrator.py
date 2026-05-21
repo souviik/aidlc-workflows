@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -193,6 +194,40 @@ def run_cli_evaluation(
                  if f.name not in ("aidlc-state.md", "audit.md")]
     if not doc_files:
         print("[WARN] aidlc-docs exists but contains no substantive documents")
+
+    # 4b. Run post-run tests (install deps + run test suite) on generated workspace.
+    # Mirrors what the Strands runner does automatically; CLI adapters skip this step.
+    workspace = result.workspace_dir or output_dir / "workspace"
+    if workspace.is_dir():
+        print("\nRunning post-run tests on generated workspace...")
+        post_run_env = {**__import__("os").environ, "PYTHONPATH": os.pathsep.join([
+            str(REPO_ROOT / "packages" / "execution" / "src"),
+            str(REPO_ROOT / "packages" / "shared" / "src"),
+        ])}
+        # nosec B603 - Executing trusted framework post-run evaluation script
+        # nosemgrep: dangerous-subprocess-use-audit
+        subprocess.run(
+            [
+                sys.executable, "-c",
+                (
+                    "import sys; sys.path.insert(0, sys.argv[1]); sys.path.insert(0, sys.argv[2]);"
+                    "from aidlc_runner.post_run import run_post_evaluation;"
+                    "from aidlc_runner.config import RunnerConfig;"
+                    "from pathlib import Path;"
+                    "run_post_evaluation(Path(sys.argv[3]), RunnerConfig(), use_sandbox=False)"
+                ),
+                str(REPO_ROOT / "packages" / "execution" / "src"),
+                str(REPO_ROOT / "packages" / "shared" / "src"),
+                str(output_dir),
+            ],
+            env=post_run_env,
+            capture_output=False,
+        )
+        test_results = output_dir / "test-results.yaml"
+        if test_results.exists():
+            print(f"[OK] Post-run tests written to {test_results}")
+        else:
+            print("[WARN] Post-run tests did not produce test-results.yaml")
 
     # 5. Run evaluation pipeline (stages 2-6)
     eval_cmd = [

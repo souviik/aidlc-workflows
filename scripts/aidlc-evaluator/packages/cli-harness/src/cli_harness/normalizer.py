@@ -41,16 +41,20 @@ def normalize_output(
 
     # Generate run-meta.yaml
     now = datetime.now(UTC).isoformat(timespec="seconds")
+    num_turns = (token_usage or {}).get("num_turns", 0)
+    model_id = model_hint or (token_usage or {}).get("model") or f"cli:{adapter_name}"
+    # Label CLI runs clearly so reports don't show 0 tokens as a failure
+    executor_label = f"{model_id} ({num_turns} turns)" if num_turns else model_id
     meta = {
         "run_folder": str(output_dir),
         "started_at": now,
         "completed_at": now,
         "status": "completed",
         "execution_time_ms": int(elapsed_seconds * 1000),
-        "total_handoffs": 0,
-        "node_history": [],
+        "total_handoffs": num_turns,
+        "node_history": [f"executor (turn {i+1})" for i in range(num_turns)],
         "config": {
-            "executor_model": model_hint or f"cli:{adapter_name}",
+            "executor_model": executor_label,
             "simulator_model": "human",
             "aws_region": "",
         },
@@ -66,13 +70,12 @@ def normalize_output(
     cache_read = tu.get("cache_read_tokens", 0)
     cache_write = tu.get("cache_write_tokens", 0)
     total_tokens = tu.get("total_tokens", input_tokens + output_tokens + cache_read + cache_write)
-    num_turns = tu.get("num_turns", 0)
+    # num_turns is already resolved above alongside model_id; reuse those locals
     duration_ms = int(elapsed_seconds * 1000)
     duration_api_ms = tu.get("duration_api_ms", 0)
-    model_id = tu.get("model", f"cli:{adapter_name}")
 
-    # tokens section — CLI adapters have a single "executor" agent, no simulator
-    # No repeated context since CLI adapters are single-session
+    # tokens section — CLI adapters don't expose token counts; use N/A sentinel (-1)
+    # so the report renders "N/A" instead of misleading zeros
     tokens_section: dict = {
         "total": {
             "input_tokens": input_tokens,
