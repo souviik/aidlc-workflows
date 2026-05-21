@@ -239,8 +239,14 @@ class KiroCLIAdapter(CLIAdapter):
                             complete = False
                             for state_file in aidlc_docs_dir.rglob("intent-state.md"):
                                 content = state_file.read_text(encoding="utf-8")
-                                if "status: complete" in content or "— | complete" in content.lower():
-                                    complete = True
+                                # Match only the top-level "status: complete" header field,
+                                # not individual skill rows which also contain "complete".
+                                for line in content.splitlines():
+                                    stripped = line.strip()
+                                    if stripped.startswith("status:") and "complete" in stripped.lower():
+                                        complete = True
+                                        break
+                                if complete:
                                     break
                             _log(f"  aidlc-docs: {file_count} files, intent-state={'complete' if complete else 'in-progress'}")
                             if complete:
