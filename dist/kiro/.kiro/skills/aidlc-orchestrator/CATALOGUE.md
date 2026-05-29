@@ -2,7 +2,13 @@
 
 Catalogue of AI-DLC skills. Each skill is a directory under `skills/<skill-name>/` and follows the [Agent Skills specification](https://agentskills.io/specification). The catalogue is the orchestrator's source when composing a workflow.
 
-Skills are composable. Phases and stages are organising concepts the orchestrator uses to group and present skills — they are not a rigid pipeline. A customer can reorder, insert, or omit any skill when composing a workflow.
+Skills come in three types:
+
+- **Setup skills** — run once per intent during bootstrap, before the workflow exists. They create the intent skeleton and compose the workflow.
+- **Stage skills** — run as discrete steps in the workflow. Each has its own clarification/planning/execution/validation cycle.
+- **Lenses** — cross-cutting perspectives injected into every applicable stage's builder and validator invocations. They do not run as discrete steps.
+
+Skills are composable. Phases and stages are organising concepts the orchestrator uses to group and present skills — they are not a rigid pipeline. A customer can reorder, insert, or omit any stage skill when composing a workflow.
 
 ## Skill folder layout
 
@@ -19,13 +25,16 @@ Generic builder and validator behaviour lives in `aidlc-common/protocols/aidlc-b
 
 Every skill's `SKILL.md` frontmatter carries, under `metadata`, the fields the orchestrator reads:
 
-- `phase` — `bootstrap`, `inception`, `construction`, or `operations`
+- `type` — `"stage"` (default), `"setup"`, or `"lens"`
+- `phase` — `bootstrap`, `inception`, `construction`, or `operations` (stage and setup skills only)
 - `stage` — organising tag (e.g. `requirements-analysis`, `user-stories`); multiple skills may share a stage when fan-out happens
 - `per-unit` — `"true"` when the skill runs once per unit in the construction phase
 - `human-clarification` — `"true"` (default) if the human answers clarification questions; `"false"` if the builder records the questions, picks its own recommended answers, and proceeds autonomously
 - `plan-creation` — `"true"` (default) if the builder writes a plan file before execution; `"false"` if the skill skips planning entirely and goes from clarification straight to execution
 - `plan-verification` — `"true"` (default) if the human approves the plan before execution. Ignored when `plan-creation: "false"`. Invalid combination: `plan-creation: "false"` with `plan-verification: "true"`.
 - `artefact-verification` — `"true"` (default) if the human reviews artifacts after the validator passes
+- `applies-to` — lenses only: `"all"` or a comma-separated list of stages where the lens is relevant
+- `default-activation` — lenses only: `"true"` (active unless explicitly deactivated) or `"false"` (opt-in per intent)
 
 Values are strings per the agentskills.io spec. The orchestrator parses `"true"`/`"false"` as booleans.
 
@@ -42,44 +51,41 @@ Clarification is always *attempted* — the questions file always exists for tra
 
 All skills we supply are prefixed `aidlc-` to distinguish them from customer-contributed or third-party skills. The `stage` tag is the bare unprefixed name (e.g. `requirements-analysis`) and remains the human-facing vocabulary.
 
-## Available skills
+---
+
+## Setup Skills
+
+The bootstrap phase runs once per intent. The orchestrator drives `intent-bootstrap` outside `process_checker` (it has to — the file `process_checker` reads doesn't exist yet). After `intent-bootstrap` completes, the intent skeleton exists with a stub `workflow.md` containing only the `workflow-composition` line. From there, `workflow-composition` runs through the standard loop and rewrites `workflow.md` with the chosen downstream skills. Setup skills are never present in `workflow.md`.
+
+Both setup skills set `human-clarification: false` and `plan-creation: false` because their decisions follow rote patterns: question files are auto-answered with the builder's recommendations (recorded for audit), planning is skipped, and execution proceeds directly. `workflow-composition` keeps `artefact-verification: true` so the human still approves the composed workflow.
+
+| Skill | Stage | Human-Clar | Plan | Artefact-Verify | Status |
+|---|---|---|---|---|---|
+| aidlc-intent-bootstrap     | intent-bootstrap     | false | false | false | ✅ |
+| aidlc-workflow-composition | workflow-composition | false | false | true  | ✅ |
+
+---
+
+## Stage Skills
 
 Legend: ✅ implemented (folder exists under `skills/`), 🚧 not yet implemented.
 
 Default flags (when not stated): `human-clarification: true`, `plan-creation: true`, `plan-verification: true`, `artefact-verification: true`.
 
-### Bootstrap phase
-
-The bootstrap phase runs once per intent. The orchestrator drives `intent-bootstrap` outside `process_checker` (it has to — the file `process_checker` reads doesn't exist yet). After `intent-bootstrap` completes, the intent skeleton exists with a stub `workflow.md` containing only the `workflow-composition` line. From there, `workflow-composition` runs through the standard loop and rewrites `workflow.md` with the chosen downstream skills. Bootstrap skills are never present in `workflow.md`.
-
-Both bootstrap skills set `human-clarification: false` and `plan-creation: false` because their decisions follow rote patterns: question files are auto-answered with the builder's recommendations (recorded for audit), planning is skipped, and execution proceeds directly. `workflow-composition` keeps `artefact-verification: true` so the human still approves the composed workflow.
-
-| Skill | Stage | Per-Unit | Human-Clar | Plan-Create | Plan-Verify | Artefact-Verify | Status |
+| Skill | Phase | Per-Unit | Human-Clar | Plan-Create | Plan-Verify | Artefact-Verify | Status |
 |---|---|---|---|---|---|---|---|
-| aidlc-intent-bootstrap       | intent-bootstrap       | No  | false | false | n/a   | false | ✅ |
-| aidlc-workflow-composition   | workflow-composition   | No  | false | false | n/a   | true  | ✅ |
-
-### Inception phase
-
-| Skill | Stage | Per-Unit | Human-Clar | Plan-Create | Plan-Verify | Artefact-Verify | Status |
-|---|---|---|---|---|---|---|---|
-| aidlc-reverse-engineering    | reverse-engineering    | No  | true | true | true | true | ✅ |
-| aidlc-requirements-analysis  | requirements-analysis  | No  | true | true | true | true | ✅ |
-| aidlc-user-stories           | user-stories           | No  | true | true | true | true | ✅ |
-| aidlc-wireframes             | wireframes             | No  | true | true | true | true | ✅ |
-| aidlc-application-design     | application-design     | No  | true | true | true | true | ✅ |
-| aidlc-units-generation       | units-generation       | No  | true | true | true | true | ✅ |
-
-### Construction phase
-
-| Skill | Stage | Per-Unit | Human-Clar | Plan-Create | Plan-Verify | Artefact-Verify | Status |
-|---|---|---|---|---|---|---|---|
-| aidlc-functional-design      | functional-design      | Yes | true | true | true | true | ✅ |
-| aidlc-nfr-assessment         | nfr-assessment         | Yes | true | true | true | true | ✅ |
-| aidlc-nfr-design             | nfr-design             | Yes | true | true | true | true | ✅ |
-| aidlc-infrastructure-design  | infrastructure-design  | Yes | true | true | true | true | ✅ |
-| aidlc-code-generation        | code-generation        | Yes | true | true | true | true | ✅ |
-| aidlc-build-and-test         | build-and-test         | No  | true | true | true | true | 🚧 |
+| aidlc-reverse-engineering   | inception    | No  | true | true | true | true | ✅ |
+| aidlc-requirements-analysis | inception    | No  | true | true | true | true | ✅ |
+| aidlc-user-stories          | inception    | No  | true | true | true | true | ✅ |
+| aidlc-wireframes            | inception    | No  | true | true | true | true | ✅ |
+| aidlc-application-design    | inception    | No  | true | true | true | true | ✅ |
+| aidlc-units-generation      | inception    | No  | true | true | true | true | ✅ |
+| aidlc-functional-design     | construction | Yes | true | true | true | true | ✅ |
+| aidlc-nfr-assessment        | construction | Yes | true | true | true | true | ✅ |
+| aidlc-nfr-design            | construction | Yes | true | true | true | true | ✅ |
+| aidlc-infrastructure-design | construction | Yes | true | true | true | true | ✅ |
+| aidlc-code-generation       | construction | Yes | true | true | true | true | ✅ |
+| aidlc-build-and-test        | construction | No  | true | true | true | true | 🚧 |
 
 The orchestrator or the human may override flags per-intent when composing the workflow.
 
@@ -89,7 +95,7 @@ When a skill is implemented, flip its Status to ✅ and ensure the folder contai
 
 ## Lenses
 
-Lenses are a distinct skill type (`type: lens`) that apply a perspective across the entire lifecycle. Unlike stage skills, lenses do not run as discrete steps in the workflow. Instead, they are activated during workflow-composition and their definitions are injected into every builder and validator invocation for the duration of the intent.
+Lenses are skills with `type: lens` that apply a perspective across the entire lifecycle. Unlike stage skills, lenses do not run as discrete steps in the workflow. Instead, they are activated during workflow-composition and their definitions are injected into every builder and validator invocation for the duration of the intent.
 
 A lens provides:
 - **Principles and definitions** — generic guidance the builder applies in context of whatever stage it is executing
@@ -104,12 +110,6 @@ skills/<lens-name>/
 ├── SKILL.md              ← type: lens, purpose, definitions, principles, question guidance
 └── validation-spec.md    ← validation rules applied at every stage
 ```
-
-### Lens frontmatter metadata
-
-- `type` — `"lens"` (distinguishes from stage skills)
-- `applies-to` — `"all"` or a list of stages where the lens is relevant (e.g. `"requirements-analysis, application-design, code-generation"`)
-- `default-activation` — `"true"` (active unless explicitly deactivated) or `"false"` (opt-in per intent)
 
 ### Activation
 
