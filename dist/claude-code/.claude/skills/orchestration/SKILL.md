@@ -49,7 +49,7 @@ Before execution begins, compose the adaptive workflow for this intent. Read the
 
 1. **Read `stages/stage-graph.md`** — this is your source for what stages exist and their dependencies. Do NOT read individual stage `definition.md` files during composition — the graph has everything you need to select and order stages.
 2. **Right-size aggressively** — a trivial bug fix needs code-generation → build-and-test. A complex greenfield system needs the full graph. Skip stages that would not meaningfully shape what comes next.
-3. **Right-size contributors** — for prototypes, bug fixes, or lightweight intents, omit contributors entirely (no review step). For production systems or complex features, include relevant contributors. The stage definition lists available contributors; you decide which (if any) actually participate.
+3. **Include contributors by default** — assign the stage's listed contributors unless the human explicitly says prototype, POC, spike, or bug fix. When in doubt, include. The human can always say "skip reviews" if they want to.
 4. **Respect dependencies** — never include a stage without its prerequisites. If you include nfr-design, you must include nfr-assessment.
 5. **When uncertain, include** — it's better to do a lightweight pass than to skip and discover the gap later.
 6. **Present the composed workflow to the human** — show which stages will run, which contributors are assigned, and why. Get approval before starting execution.
