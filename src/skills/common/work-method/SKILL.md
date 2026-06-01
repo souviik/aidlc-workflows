@@ -35,17 +35,31 @@ Follow your plan. Produce the artifacts declared in the stage definition. As you
 
 After all artifacts are written, set this stage's status in `state/state.json` to `artifact-generated`.
 
-### Review someone else's work
+### Review someone else's work (as contributor)
 
 Read the artifact produced by the owner from the stage directory. Write your findings to `<your-persona-name>-review.md` in the stage directory. Be specific — reference sections, fields, or gaps.
 
 After writing your review, set your review entry in `state/state.json` to `reviewed: true`.
 
-### Refine based on feedback
+### Final review (as reviewer)
 
-Read the review files from contributors (or human feedback). Address their findings — fix issues, fill gaps, respond to challenges. Update your artifacts in place. Document your reasoning for anything you chose not to address.
+You are the quality gate. Read ALL files in the stage directory — the artifact, the questions.md, the plan.md, all contributor review files, and the stage definition/templates. Check for completeness, coherence, and traceability.
+
+Write your findings to `<your-persona-name>-review.md` in the stage directory. Your verdict is either "ready" or "not ready" with specific gaps listed.
+
+Do NOT set the stage status. The orchestrator sets `final-review-complete` after you return.
+
+### Refine based on contributor feedback
+
+Read the contributor review files (`*-review.md` from contributors). Address their findings — fix issues, fill gaps, respond to challenges. Update your artifacts in place. Document your reasoning for anything you chose not to address.
 
 After refining, set this stage's status in `state/state.json` to `refined`.
+
+### Finalise based on reviewer feedback
+
+Read the final reviewer's review file. Address their findings — fix remaining gaps, resolve any "not ready" items. Update your artifacts in place.
+
+After finalising, set this stage's status in `state/state.json` to `finalised`.
 
 ## Persistence
 

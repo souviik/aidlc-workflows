@@ -20,13 +20,12 @@ associated-skills:
   - requirements-analysis
   - user-empathy
   - story-decomposition
-  - ux-design
 
 stages-owned:
   - requirements-analysis
   - story-generation
-  - wireframe-design
 
 contributor-at:
   - application-design
   - functional-design
+  - wireframe-design

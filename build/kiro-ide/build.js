@@ -119,6 +119,24 @@ function parseYaml(content) {
 function personaToAgent(yamlContent) {
   const persona = parseYaml(yamlContent);
 
+  // Build resources array from associated-skills + common skills (needed before prompt augment)
+  const resources = [];
+
+  // Add common skills (work-method, etc.)
+  const commonSkillsDir = path.join(SRC, "skills", "common");
+  if (fs.existsSync(commonSkillsDir)) {
+    for (const skillDir of fs.readdirSync(commonSkillsDir, { withFileTypes: true })) {
+      if (!skillDir.isDirectory()) continue;
+      resources.push(`skill://.kiro/skills/common/${skillDir.name}/SKILL.md`);
+    }
+  }
+
+  // Add domain skills from associated-skills
+  const associatedSkills = persona["associated-skills"] || [];
+  for (const skill of associatedSkills) {
+    resources.push(`skill://.kiro/skills/${skill}/SKILL.md`);
+  }
+
   // Build prompt from only identity fields (not metadata)
   const promptLines = [];
   promptLines.push(`name: ${persona.name || ""}`);
@@ -145,30 +163,14 @@ function personaToAgent(yamlContent) {
       promptLines.unshift(augment["pre-augment"].trim(), "");
     }
     if (augment["post-augment"]) {
-      promptLines.push(augment["post-augment"].trim());
+      // Append the augment text followed by explicit skill paths
+      let skillList = resources.map(r => r.replace("skill://", "")).join(", ");
+      promptLines.push(augment["post-augment"].trim() + " " + skillList);
       promptLines.push("");
     }
   }
 
   const prompt = promptLines.join("\n");
-
-  // Build resources array from associated-skills + common skills
-  const resources = [];
-
-  // Add common skills (work-method, etc.)
-  const commonSkillsDir = path.join(SRC, "skills", "common");
-  if (fs.existsSync(commonSkillsDir)) {
-    for (const skillDir of fs.readdirSync(commonSkillsDir, { withFileTypes: true })) {
-      if (!skillDir.isDirectory()) continue;
-      resources.push(`skill://.kiro/skills/common/${skillDir.name}/SKILL.md`);
-    }
-  }
-
-  // Add domain skills from associated-skills
-  const associatedSkills = persona["associated-skills"] || [];
-  for (const skill of associatedSkills) {
-    resources.push(`skill://.kiro/skills/${skill}/SKILL.md`);
-  }
 
   return {
     name: persona.name || "",

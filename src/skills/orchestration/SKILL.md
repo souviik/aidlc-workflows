@@ -52,7 +52,7 @@ Before execution begins, compose the adaptive workflow for this intent. Read the
 3. **Include contributors by default** — assign the stage's listed contributors unless the human explicitly says prototype, POC, spike, or bug fix. When in doubt, include. The human can always say "skip reviews" if they want to.
 4. **Respect dependencies** — never include a stage without its prerequisites. If you include nfr-design, you must include nfr-assessment.
 5. **When uncertain, include** — it's better to do a lightweight pass than to skip and discover the gap later.
-6. **Present the composed workflow to the human** — show which stages will run, which contributors are assigned, and why. Get approval before starting execution.
+6. **Present the composed workflow to the human** — show which stages will run, which contributors are assigned, and why. Do NOT reference path names (A, B, C, D) — those are internal reasoning aids. Just present the ordered list of stages with rationale.
 
 ### Composition output
 
@@ -93,7 +93,7 @@ orchestrator    → review-needed            (invokes contributors)
 orchestrator    → reviewed                 (all contributors have returned their reviews)
 owner           → refined                  (addressed review comments)
 orchestrator    → final-review-needed      (invokes reviewer)
-reviewer        → final-review-complete    (wrote reviewer review)
+orchestrator    → final-review-complete    (reviewer has returned their review)
 owner           → finalised                (addressed reviewer feedback)
 orchestrator    → presented                (showed artifact to human)
 orchestrator    → changes-requested        (human wants changes — wrote feedback to questions.md or a notes file)
@@ -106,8 +106,10 @@ orchestrator    → complete                 (human approved)
 
 - Each actor only sets state for what THEY did — never for what someone else will do
 - When re-invoking a persona, pass all relevant files from the stage directory as context
-- If no contributors are assigned, skip review — go from `artifact-generated` to `presented`
-- If no review comments exist, skip refine — go from `reviewed` to `presented`
+- If no contributors are assigned, skip review — go from `artifact-generated` to `final-review-needed` (if reviewer assigned) or `presented` (if no reviewer)
+- If no review comments exist, skip refine — go from `reviewed` to `final-review-needed` (if reviewer assigned) or `presented` (if no reviewer)
+- The final reviewer step is NEVER skipped when a reviewer is assigned in the workflow. Only the absence of a reviewer in the stage definition removes that step.
+- Mandatory post-review sequence when reviewer is assigned: `refined` → `final-review-needed` → `final-review-complete` → `finalised` → `presented`
 
 ### How to invoke a persona:
 

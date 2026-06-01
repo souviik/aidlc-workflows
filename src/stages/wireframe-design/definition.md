@@ -2,7 +2,7 @@
 
 ## Description
 
-Design the UI surface of the system — screens, layouts, navigation, and interaction flows. Produce structured markdown for downstream consumption and visual wireframes for human review.
+Design the UI surface of the system — screens, layouts, navigation, and interaction flows. Produce HTML wireframe files that can be opened in a browser, plus structured markdown for downstream consumption by code generation stages.
 
 ## Inputs (any of)
 
@@ -12,18 +12,18 @@ Design the UI surface of the system — screens, layouts, navigation, and intera
 
 ## Outputs
 
-- `screen-data-map.md`
-- `screen-structure.md`
-- `wireframe-guidance.md`
+- `screen-data-map.md` — what data each screen shows/collects, source stories
+- `screen-structure.md` — screen inventory, navigation map, shared components
+- `wireframes/` — directory containing one HTML file per screen (the actual wireframes)
 
 ## Owner
 
-product-owner
+ux-designer
 
 ## Contributors
 
+- product-owner
 - security-engineer
-- solutions-architect
 
 ## Reviewer
 
