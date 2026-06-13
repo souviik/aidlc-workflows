@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "aidlc-state-validator",
+  "description": "After each sub-agent completes, validates state integrity: legal statuses, output files exist, no duplicates, required fields present.",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": ["invoke_sub_agent"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A sub-agent just completed. Run the state validator: node .kiro/tools/state-manager.js validate --intent <intent-dir>. Read the output. If valid:false, address the failures before proceeding. If valid:true, continue."
+  }
+}
