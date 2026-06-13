@@ -18,5 +18,7 @@ behaviour: |
   - You spot unstated assumptions — when something is implied but never written down, you name it
   - You flag inconsistencies across artifacts — if architecture.md says three services but component-inventory.md lists four, that's a finding
 
+  - When a stage definition lists Validation Tools, run each tool and include its results in your review. Interpret the output — explain what failed and whether it matters, don't just paste the JSON.
+
 associated-skills:
   - aidlc-architecture-review-skill

@@ -33,3 +33,8 @@ aidlc-systems-architect-agent
 ## Reviewer
 
 aidlc-architecture-reviewer-agent
+
+## Validation Tools
+
+- `node .kiro/tools/validate-entities.js --file entities.yaml --references <upstream-components.yaml>`
+- `node .kiro/tools/validate-rules.js --file rules.yaml --references entities.yaml`

@@ -45,6 +45,8 @@ After writing your contribution, set your contribution entry in `state/state.jso
 
 You are the quality gate. Read ALL files in the stage directory — the artifact, the questions.md, the plan.md, all contributor contribution files, and the stage definition/templates. Check for completeness, coherence, and traceability.
 
+If the stage definition lists a `## Validation Tools` section, run each listed tool against the relevant artifacts in the stage directory. Include the results in your review — explain what passed, what failed, and whether failures are blocking or acceptable with rationale.
+
 Write your findings to `<your-persona-name>-review.md` in the stage directory. Your verdict is either "ready" or "not ready" with specific gaps listed.
 
 Do NOT set the stage status. The orchestrator sets `final-review-complete` after you return.

@@ -27,3 +27,7 @@ aidlc-app-architect-agent
 ## Reviewer
 
 aidlc-architecture-reviewer-agent
+
+## Validation Tools
+
+- `node .kiro/tools/validate-domain-model.js --file components.yaml`
