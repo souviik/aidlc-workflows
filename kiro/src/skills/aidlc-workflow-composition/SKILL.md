@@ -34,7 +34,17 @@ From workspace state + intent language + existing artifacts, classify internally
 
 ## Step 2: Apply Learned Preferences (internal — no interaction)
 
-Read `org-ai-kb/<team>/memory/preferences.md`. If it contains a structured preference table for the deduced category, use those defaults (autonomy, reviewers, contributors) when proposing stages. If no preferences exist for this category, use framework defaults. Do NOT surface preferences to the human — just apply them silently. The human can override per-stage during proposal; overrides are captured by the learnings hook for future intents.
+Read `org-ai-kb/<team>/memory/preferences.md`. The file uses markdown tables grouped by intent category:
+
+```markdown
+## Production Feature
+| Stage | Autonomy | Contributors | Reviewer |
+|---|---|---|---|
+| requirements-analysis | guided | systems-architect | product-lead |
+| story-generation | full | none | product-lead |
+```
+
+Find the table matching the deduced category from Step 1. If found, use those defaults (autonomy, contributors, reviewer) when proposing stages in Step 5. If no matching category exists, use framework defaults (supervised, contributors/reviewer from stage definition). Do NOT surface preferences to the human — just apply them silently. Human overrides at any stage get captured by the learnings hook.
 
 Also read `org-ai-kb/<team>/memory/corrections.md` and apply any NEVER/ALWAYS rules.
 

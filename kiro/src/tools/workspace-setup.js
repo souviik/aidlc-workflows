@@ -102,8 +102,9 @@ mkdirp(path.join(MEMORY_DIR, "templates"));
 // 2. Initialize memory files if they don't exist
 writeIfMissing(path.join(MEMORY_DIR, "preferences.md"), `# Team Preferences
 
-<!-- Append team-wide preferences here. These apply to all intents in this workspace. -->
-<!-- Format: - YYYY-MM-DD — [preference] (source: intent-NNN or manual) -->
+<!-- Learned from workflow composition choices. Grouped by intent category. -->
+<!-- Format: table per category with columns Stage | Autonomy | Contributors | Reviewer -->
+<!-- Updated automatically by the learnings hook after each stage. -->
 
 `);
 
