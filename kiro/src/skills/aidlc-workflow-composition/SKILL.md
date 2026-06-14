@@ -95,11 +95,22 @@ For each stage, present the composition with autonomy visible in the header:
 
 The autonomy mode MUST be stated in the header (e.g., "— supervised", "— guided", "— full"). Changing autonomy is always available as an option. The default is supervised unless learned preferences for this category say otherwise.
 
+**CRITICAL: Contributors and reviewers in the proposal and options MUST come from the stage's `definition.md`.** Read the stage definition's `## Contributors` and `## Reviewer` sections. Only propose personas listed there. Do NOT invent contributors or reviewers that don't exist in the stage definition.
+
 **STOP HERE. Wait for the human to respond before executing the stage.**
 
-Once the human approves (or modifies and approves), register the stage in state.json:
+Once the human approves (or modifies and approves), register the stage in BOTH workflow.json and state.json:
 
 ```bash
+node .kiro/tools/workflow-manager.js add-stage \
+  --intent <intent-dir> \
+  --stage <stage-name> \
+  --owner <owner-persona> \
+  --phase <inception|construction|operations> \
+  --contributors <comma-separated-if-any> \
+  --reviewer <reviewer-persona-if-any> \
+  --autonomy <supervised|guided|full>
+
 node .kiro/tools/state-manager.js add-stage \
   --intent <intent-dir> \
   --stage <stage-name> \
@@ -110,7 +121,7 @@ node .kiro/tools/state-manager.js add-stage \
   --autonomy <supervised|guided|full>
 ```
 
-This makes the stage visible to the state-manager for transition tracking. Then proceed to stage execution.
+Both calls are required. workflow.json is the plan record; state.json is the execution tracker. Then proceed to stage execution.
 
 After the options table, always add: "**These are suggestions — you can add, drop, or reorder any stages, change contributors, adjust review cycles, change autonomy, or tell me to do something completely different.**"
 

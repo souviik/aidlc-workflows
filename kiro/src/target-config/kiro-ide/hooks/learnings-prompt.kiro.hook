@@ -9,6 +9,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "A sub-agent just completed. Save the human's composition choices for this stage to org-ai-kb/<team>/memory/preferences.md. Record: which stage, what autonomy mode was chosen, which contributors and reviewer were included/excluded. Use format: '- YYYY-MM-DD — [stage]: [autonomy], contributors: [list or none], reviewer: [name or none] (source: intent-NNN)'. Always save — do not judge whether it's 'worth recording'. Also: if the human provided any corrections or format preferences during this stage, append those to corrections.md or preferences.md respectively."
+    "prompt": "A sub-agent just completed. Save the human's composition choices for this stage to org-ai-kb/<team>/memory/preferences.md. Record: the intent category (e.g., production feature, POC, bugfix), which stage, what autonomy mode was chosen, which contributors and reviewer were included/excluded. Use format: '- YYYY-MM-DD — [category] > [stage]: [autonomy], contributors: [list or none], reviewer: [name or none] (source: intent-NNN)'. Always save — do not judge whether it's 'worth recording'. Also: if the human provided any corrections or format preferences during this stage, append those to corrections.md or preferences.md respectively."
   }
 }
