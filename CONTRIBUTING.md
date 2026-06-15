@@ -4,50 +4,63 @@ Thank you for your interest in contributing to AI-DLC. Whether it's a bug report
 
 Please read through this document before submitting any issues or pull requests.
 
-## Tenets
+## Where the detailed guide lives
 
-Before contributing, familiarize yourself with our [tenets](README.md#tenets).
+This file covers the project-wide conventions (reporting, PR flow, security, licensing). The authoritative, hands-on contributor guide — prerequisites, the edit → regenerate → test loop, and step-by-step recipes for adding a stage, scope, agent, or utility handler — is [`docs/reference/11-contributing.md`](docs/reference/11-contributing.md). Read it before making code changes.
 
-## Contributing Rules
+## How this repository is built
 
-AI-DLC rules live in `aidlc-rules/aws-aidlc-rule-details/`. When contributing:
+AI-DLC ships to many CLI harnesses (today Claude Code, Kiro CLI, and Codex CLI) from a single hand-authored source. The layout has three zones:
 
-- **Be reproducible**: Changes should be consistently reproducible either via test case or a series of steps.
-- **Single source of truth**: Don't duplicate content. If guidance applies to multiple stages, put it in `common/` and reference it.
-- **Keep it agnostic**: The core methodology shouldn't assume specific IDEs, agents, or models. Tool-specific files are generated from the source.
+- **`core/`** — the harness-neutral source of truth (tools, stages, agents, rules, scopes, sensors, knowledge, hooks, session skills). **Edit here.**
+- **`harness/<name>/`** — the thin per-harness surface (`manifest.ts`, the orchestrator skill, harness-specific files). **Edit here.**
+- **`dist/<harness>/`** — generated, committed, and drift-guarded. **Never hand-edit** — `bun scripts/package.ts --check` fails CI on any drift.
 
-### Directory Structure — Do Not Rename or Move
+After editing `core/` or `harness/<name>/`, regenerate the distributions:
 
-The folder names `aws-aidlc-rules/` and `aws-aidlc-rule-details/` under `aidlc-rules/` are part of the public contract. Workshops, tests, and the `core-workflow.md` path-resolution logic all depend on these exact names. Do not flatten, rename, or reorganize them.
-
-```text
-aidlc-rules/
-├── aws-aidlc-rules/            # Core workflow entry point
-│   └── core-workflow.md
-└── aws-aidlc-rule-details/     # Detailed rules referenced by the workflow
-    ├── common/
-    ├── inception/
-    ├── construction/
-    ├── extensions/
-    └── operations/
+```bash
+bun scripts/package.ts            # regenerate every dist/<harness>/
+bun scripts/package.ts --check    # byte-parity drift guard (run in CI)
 ```
 
-### Rule Structure
+Adding a whole new harness? See [Porting to a New Harness](docs/harness-engineering/09-porting-to-a-new-harness.md).
 
-Rules are organized by phase:
+## AI-DLC Authoring Principles
 
-- `common/` - Shared guidance across all phases
-- `inception/` - Planning and architecture rules
-- `construction/` - Design and implementation rules
-- `operations/` - Deployment and monitoring rules
-- `extensions/` - Optional cross-cutting constraint rules
+AI-DLC separates stages, agents, skills, templates, and artifacts. Each concept has one job. Keep those boundaries clear so workflows remain adaptive and the generated runtime stays consistent.
 
-### Testing Changes
+- **Stages own workflow placement**: stage definitions are the source of truth for owners, contributors, reviewers, inputs, and outputs. Do not repeat stage ownership in agents or skills.
+- **Agents own identity**: agent personas describe perspective, behaviour, judgment style, and associated reusable skills. They should not list stage ownership, contributor mappings, or reviewer mappings.
+- **Skills are transferable capabilities**: a skill defines reusable expertise — definition, principles, patterns, and application. Avoid tying a skill to one agent or one stage.
+- **Avoid stage leakage in skills**: prefer wording like "applies wherever contracts are designed or reviewed" over "applied by the architect at functional-design."
+- **Artifacts flow by identity**: later stages copy forward upstream blueprint artifacts and expand them in place. Preserve stable IDs, names, boundaries, responsibilities, and dependency directions.
+- **Required means required knowledge**: stage inputs describe concerns the stage must understand, not hard dependencies on exact upstream paths unless explicitly marked non-skippable.
+- **Use artifact roles over rigid filenames**: a stage should resolve "functional behaviour" or "blueprint identity" from the richest available upstream artifact rather than fail because a preferred file is missing.
+- **Keep abstraction levels clean**: early stages stay conceptual; functional design adds logical behaviour; NFR and infrastructure stages add quality and physical deployment detail; code generation adds implementation.
+- **Templates match stage granularity**: templates should ask for the level of detail appropriate to their stage. Do not ask domain-design for database tables, IaC, or framework details.
+- **Generated resources must resolve**: runtime resources must point only to files that exist. Planned future skills may be listed as backlog intent, but generated resource references must be resolvable.
 
-Test your rule changes with at least one supported platform (Amazon Q Developer, Kiro, or other tools) before submitting. Describe what you tested in your PR.
+## Pull Request Checklist
 
-If you're adding or updating installation instructions, ensure you've tested them on Mac,
-Windows CMD, and Windows Powershell.
+Before submitting a PR, verify:
+
+- You edited the hand-authored source in `core/` or `harness/<name>/`, **not** `dist/`.
+- You ran `bun scripts/package.ts` and committed the regenerated `dist/` trees alongside your source change.
+- `bun scripts/package.ts --check` reports no drift.
+- `bun tests/run-tests.ts` passes (see [Testing](docs/reference/09-testing.md)).
+- User-visible changes bump `core/tools/aidlc-version.ts`, the README version badge, and add a matching `CHANGELOG.md` entry in the same commit (see the Changelog Policy in [`AGENTS.md`](AGENTS.md)).
+- Stale stage names, paths, or flags do not remain in examples, docs, or generated output (grep `docs/` and `README.md` when renaming anything).
+
+## Testing Changes
+
+Run the suite before submitting:
+
+```bash
+bun tests/run-tests.ts               # default: smoke + unit + integration
+bun tests/run-tests.ts --release     # + e2e (full acceptance)
+```
+
+Describe what you tested in your PR. If you're adding or updating installation instructions, ensure you've tested them on macOS, Windows CMD, and Windows PowerShell.
 
 ## Reporting Bugs/Feature Requests
 
@@ -55,9 +68,9 @@ Use GitHub issues to report bugs or suggest features. Before filing, check exist
 
 Include:
 
-- Which rule or stage is affected
+- Which rule, stage, agent, or harness is affected
 - Expected vs actual behavior
-- The platform/model you tested with
+- The platform, harness, and model you tested with
 
 ## Contributing via Pull Requests
 

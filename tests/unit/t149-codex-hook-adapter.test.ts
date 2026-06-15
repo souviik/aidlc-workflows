@@ -1,0 +1,278 @@
+// t149-codex-hook-adapter: the Codex stdin shim normalizes live-captured
+// payloads into the core hooks' contract.
+//
+// covers: file:hooks/aidlc-stop.ts, file:hooks/aidlc-session-start.ts, file:hooks/aidlc-sync-statusline.ts, file:hooks/aidlc-log-subagent.ts, file:hooks/aidlc-audit-logger.ts
+//
+// WHAT. Each case pipes a fixture from tests/fixtures/codex-hook-payloads/
+// (field-verbatim captures off Codex CLI 0.137.0 — the spike corpus at
+// tmp/codex-dist/payload-corpus/) into
+// `bun dist/codex/.codex/hooks/aidlc-codex-adapter.ts <target>` inside a
+// scratch project carrying an active workflow state, then asserts the
+// observable core-hook effect:
+//   stop              → {"decision":"block"} when the engine says work
+//                       remains (verbatim passthrough — shared contract);
+//                       silent exit 0 when no workflow state exists.
+//   session-start     → {"hookSpecificOutput":{...additionalContext}} (the
+//                       Codex wrapper — core JSON re-wrapped, E1-verified).
+//   audit-and-sensors → apply_patch envelope parsed; an aidlc-docs Add File
+//                       lands ARTIFACT_CREATED in the audit; a non-aidlc
+//                       file is a no-op.
+//   state-sync        → update_plan in_progress step with "[slug]" suffix
+//                       dispatches set-status (Current Stage updates).
+//   log-subagent      → SUBAGENT_COMPLETED in the audit.
+//   duplicate delivery → the second identical stdin replays the first
+//                       response (the ×2 idempotency contract) — the audit
+//                       gains NO second row.
+//   malformed stdin   → fail-open exit 0 (advisory contract).
+//
+// WHY SUBPROCESS. The adapter IS a subprocess shim — in-process unit testing
+// would bypass the exact stdin/stdout/exit-code surface being contracted.
+// (Same idiom as kiro's t142.)
+
+import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const CODEX_TREE = join(REPO_ROOT, "dist", "codex", ".codex");
+const FIXTURES = JSON.parse(
+  readFileSync(join(REPO_ROOT, "tests", "fixtures", "codex-hook-payloads", "payloads.json"), "utf-8"),
+) as Record<string, Record<string, unknown>>;
+
+// Scratch project: a .codex tree (copied) + minimal aidlc-docs state so the
+// hooks' self-gates open. Built per test for isolation. cwd in the fixture
+// payloads points at the spike rig — the adapter must use ITS project (the
+// scratch dir): we rewrite the fixture's cwd to the scratch dir, exactly
+// what a real install sees (cwd = the project Codex runs in).
+function scratchProject(withState: boolean): string {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "t149-")));
+  cpSync(CODEX_TREE, join(dir, ".codex"), { recursive: true });
+  if (withState) {
+    const docs = join(dir, "aidlc-docs");
+    mkdirSync(docs, { recursive: true });
+    writeFileSync(
+      join(docs, "aidlc-state.md"),
+      readFileSync(join(REPO_ROOT, "tests", "fixtures", "state-brownfield-feature.md"), "utf-8"),
+    );
+    writeFileSync(join(docs, "audit.md"), "# AI-DLC Audit Log\n");
+  }
+  return dir;
+}
+
+function withCwd(payload: Record<string, unknown>, dir: string): Record<string, unknown> {
+  return { ...payload, cwd: dir };
+}
+
+function runAdapter(
+  projectDir: string,
+  target: string,
+  payload: unknown,
+): { stdout: string; code: number } {
+  const r = spawnSync(
+    "bun",
+    [join(projectDir, ".codex", "hooks", "aidlc-codex-adapter.ts"), target],
+    {
+      cwd: projectDir,
+      input: typeof payload === "string" ? payload : JSON.stringify(payload),
+      encoding: "utf-8",
+      env: { ...process.env, CLAUDE_PROJECT_DIR: undefined } as NodeJS.ProcessEnv,
+      timeout: 30_000,
+    },
+  );
+  return { stdout: r.stdout ?? "", code: r.status ?? -1 };
+}
+
+describe("t149 Codex hook adapter (live-captured payload fixtures)", () => {
+  test("1: stop blocks with a reason while the workflow has pending work (verbatim contract)", () => {
+    const dir = scratchProject(true);
+    try {
+      const r = runAdapter(dir, "stop", withCwd(FIXTURES.stop, dir));
+      expect(r.code).toBe(0);
+      const out = JSON.parse(r.stdout) as { decision?: string; reason?: string };
+      expect(out.decision).toBe("block");
+      expect(out.reason ?? "").not.toBe("");
+      // The continuation reason names the codex tools path (harnessDir seam).
+      expect(out.reason).toContain(".codex/tools/aidlc-orchestrate.ts");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("2: stop is silent (no block) when no workflow state exists", () => {
+    const dir = scratchProject(false);
+    try {
+      const r = runAdapter(dir, "stop", withCwd(FIXTURES.stop, dir));
+      expect(r.code).toBe(0);
+      expect(r.stdout.trim()).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("3: session-start emits the Codex hookSpecificOutput wrapper with workflow context", () => {
+    const dir = scratchProject(true);
+    try {
+      const r = runAdapter(dir, "session-start", withCwd(FIXTURES.sessionStart, dir));
+      expect(r.code).toBe(0);
+      const out = JSON.parse(r.stdout) as {
+        hookSpecificOutput?: { hookEventName?: string; additionalContext?: string };
+      };
+      expect(out.hookSpecificOutput?.hookEventName).toBe("SessionStart");
+      expect(out.hookSpecificOutput?.additionalContext).toContain("AIDLC WORKFLOW ACTIVE");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("4: apply_patch Add File under aidlc-docs lands ARTIFACT_CREATED in the audit", () => {
+    const dir = scratchProject(true);
+    try {
+      const r = runAdapter(
+        dir,
+        "audit-and-sensors",
+        withCwd(FIXTURES.postToolUse_applyPatch_aidlcDocs, dir),
+      );
+      expect(r.code).toBe(0);
+      const audit = readFileSync(join(dir, "aidlc-docs", "audit.md"), "utf-8");
+      expect(audit).toContain("ARTIFACT_");
+      expect(audit).toContain("intent-capture");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("5: apply_patch on a non-aidlc file is a clean audit no-op", () => {
+    const dir = scratchProject(true);
+    try {
+      const r = runAdapter(
+        dir,
+        "audit-and-sensors",
+        withCwd(FIXTURES.postToolUse_applyPatch_plain, dir),
+      );
+      expect(r.code).toBe(0);
+      const audit = readFileSync(join(dir, "aidlc-docs", "audit.md"), "utf-8");
+      expect(audit).not.toContain("ARTIFACT_");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("6: update_plan in_progress step with [slug] suffix syncs the state file", () => {
+    const dir = scratchProject(true);
+    try {
+      const r = runAdapter(
+        dir,
+        "state-sync",
+        withCwd(FIXTURES.postToolUse_updatePlan_slug, dir),
+      );
+      expect(r.code).toBe(0);
+      const after = readFileSync(join(dir, "aidlc-docs", "aidlc-state.md"), "utf-8");
+      expect(/\*\*Current Stage\*\*:\s*intent-capture/.test(after)).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("7: update_plan without a [slug] suffix is a clean no-op", () => {
+    const dir = scratchProject(true);
+    try {
+      const before = readFileSync(join(dir, "aidlc-docs", "aidlc-state.md"), "utf-8");
+      const r = runAdapter(dir, "state-sync", withCwd(FIXTURES.postToolUse_updatePlan, dir));
+      expect(r.code).toBe(0);
+      const after = readFileSync(join(dir, "aidlc-docs", "aidlc-state.md"), "utf-8");
+      expect(after).toBe(before);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("8: log-subagent emits SUBAGENT_COMPLETED to the audit", () => {
+    const dir = scratchProject(true);
+    try {
+      const r = runAdapter(dir, "log-subagent", withCwd(FIXTURES.subagentStop, dir));
+      expect(r.code).toBe(0);
+      const audit = readFileSync(join(dir, "aidlc-docs", "audit.md"), "utf-8");
+      expect(audit).toContain("SUBAGENT_COMPLETED");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("9: duplicate delivery replays the response without a second audit row (×2 idempotency)", () => {
+    const dir = scratchProject(true);
+    try {
+      const payload = withCwd(FIXTURES.subagentStop, dir);
+      const r1 = runAdapter(dir, "log-subagent", payload);
+      const r2 = runAdapter(dir, "log-subagent", payload);
+      expect(r1.code).toBe(0);
+      expect(r2.code).toBe(0);
+      expect(r2.stdout).toBe(r1.stdout);
+      const audit = readFileSync(join(dir, "aidlc-docs", "audit.md"), "utf-8");
+      const rows = audit.match(/SUBAGENT_COMPLETED/g) ?? [];
+      expect(rows.length).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("10: session-start reconciles an unclosed prior session as inferred SESSION_ENDED (D-4)", () => {
+    const dir = scratchProject(true);
+    try {
+      // Seed a heartbeat from a DIFFERENT prior session.
+      const health = join(dir, "aidlc-docs", ".aidlc-hooks-health");
+      mkdirSync(health, { recursive: true });
+      writeFileSync(
+        join(health, "codex-session.json"),
+        JSON.stringify({ session_id: "prior-session-0000", ts: "2026-06-12T00:00:00Z" }),
+        "utf-8",
+      );
+      const r = runAdapter(dir, "session-start", withCwd(FIXTURES.sessionStart, dir));
+      expect(r.code).toBe(0);
+      const audit = readFileSync(join(dir, "aidlc-docs", "audit.md"), "utf-8");
+      expect(audit).toContain("SESSION_ENDED");
+      expect(audit).toContain("inferred");
+      expect(audit).toContain("prior-session-0000");
+      // The heartbeat now names the new session.
+      const hb = JSON.parse(readFileSync(join(health, "codex-session.json"), "utf-8")) as {
+        session_id: string;
+      };
+      expect(hb.session_id).toBe(String(FIXTURES.sessionStart.session_id));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("11: post-compact re-injects the mission context wrapped for PostCompact", () => {
+    const dir = scratchProject(true);
+    try {
+      const r = runAdapter(dir, "post-compact", withCwd(FIXTURES.postCompact, dir));
+      expect(r.code).toBe(0);
+      const out = JSON.parse(r.stdout) as {
+        hookSpecificOutput?: { hookEventName?: string; additionalContext?: string };
+      };
+      expect(out.hookSpecificOutput?.hookEventName).toBe("PostCompact");
+      expect(out.hookSpecificOutput?.additionalContext).toContain("AIDLC WORKFLOW ACTIVE");
+      // source=compact emits NO session audit row (PreCompact owns it).
+      const audit = readFileSync(join(dir, "aidlc-docs", "audit.md"), "utf-8");
+      expect(audit).not.toContain("SESSION_STARTED");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("12: malformed stdin fails open (exit 0, no output) on every target", () => {
+    const dir = scratchProject(true);
+    try {
+      for (const t of ["stop", "session-start", "audit-and-sensors", "state-sync", "log-subagent"]) {
+        const r = runAdapter(dir, t, "{not json");
+        expect(r.code).toBe(0);
+        expect(r.stdout.trim()).toBe("");
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

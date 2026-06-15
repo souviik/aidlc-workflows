@@ -1,182 +1,59 @@
-# AGENTS.md
+# AI-DLC — one core, many harnesses
 
-## Project overview
+This directory contains a native implementation of the AI-DLC (AI-Driven
+Development Life Cycle) methodology that ships to many CLI harnesses — today
+Claude Code, Kiro CLI, and Codex CLI, and any capable CLI you port it to — from
+a single hand-authored source.
 
-AI-DLC (AI-Driven Development Life Cycle) is a methodology for guiding AI coding
-agents through structured software development workflows. This repository contains
-the core workflow rules, detailed phase-specific rules, and an evaluator framework.
+## Project Structure
 
-The distributable product is the `aidlc-rules/` directory, which is zipped and
-published via GitHub Releases.
+- `core/` — **The hand-authored, harness-neutral source of truth.** Tools, stages (`aidlc-common/`), agents, rules, scopes, sensors, knowledge, hooks, and the 3 session skills. Prose names the harness directory with the `{{HARNESS_DIR}}` token; the packager substitutes `.claude`/`.kiro`/`.codex` per tree.
+- `harness/<name>/` — **The thin per-harness authored surface.** Each holds `manifest.ts` (how to project `core/` into that harness's dist) plus the orchestrator skill and harness-specific files; `harness/codex/` adds `emit.ts` (Codex-only emissions). `claude/`, `kiro/`, `codex/`.
+- `scripts/package.ts` — **The build entry.** `bun scripts/package.ts` regenerates every `dist/<harness>/`; `bun scripts/package.ts --check` is the byte-parity drift guard (CI tier). `manifest-types.ts` is the shared manifest contract.
+- `dist/<harness>/` — **GENERATED, committed, drift-guarded.** `dist/claude/.claude/`, `dist/kiro/.kiro/` (+ `AGENTS.md`), `dist/codex/` (`.codex/` + `.agents/` + `AGENTS.md`). Never hand-edit — `package.ts --check` fails CI on drift. Users copy `dist/<harness>/` into their project.
+- `tests/` — All-TypeScript test suite (`t*.test.ts`, run via bun), four levels (smoke/unit/integration/e2e). Run `bash tests/run-tests.sh --help` for levels and profiles.
+- `docs/guide/` — User Guide: getting started, workflows, scopes, agents, customization, troubleshooting
+- `docs/harness-engineering/` — Harness Engineer Guide: reshaping AIDLC through configuration (stages, agents, scopes, rules, sensors, knowledge) without code, plus porting AIDLC to a new harness
+- `docs/reference/` — Developer Reference: architecture, orchestrator, stage protocol, hooks, testing, contributing
 
-## Repository structure
+## How It Works
 
-```text
-aidlc-rules/
-├── aws-aidlc-rules/              # Core workflow entry point (DO NOT rename)
-│   └── core-workflow.md
-└── aws-aidlc-rule-details/       # Detailed rules referenced by the workflow (DO NOT rename)
-    ├── common/                   # Shared guidance across all phases
-    ├── inception/                # Planning and architecture rules
-    ├── construction/             # Design and implementation rules
-    ├── extensions/               # Optional cross-cutting constraint rules
-    └── operations/               # Deployment and monitoring rules
-scripts/aidlc-evaluator/          # Python evaluation framework (uv-managed)
-docs/
-├── ADMINISTRATIVE_GUIDE.md       # CI/CD, workflows, secrets, release process
-├── DEVELOPERS_GUIDE.md           # Local builds (CodeBuild, act), security scanners
-├── WORKING-WITH-AIDLC.md         # User guide for the AI-DLC methodology
-├── GENERATED_DOCS_REFERENCE.md   # Full aidlc-docs/ directory reference
-└── writing-inputs/               # Guides and examples for vision/tech-env documents
-.github/
-├── workflows/                    # CI/CD pipelines (8 workflows)
-├── dependabot.yml                # Dependabot dependency update configuration
-├── CODEOWNERS                    # Code ownership rules for PR reviews
-├── ISSUE_TEMPLATE/               # Issue templates
-├── pull_request_template.md      # PR template with contributor statement
-└── labeler.yml                   # Auto-label rules (path → label mapping)
-.claude/                          # Claude Code project settings
-```
+The hand-authored source lives in `core/` (harness-neutral) + `harness/<name>/`
+(per-CLI surfaces); `bun scripts/package.ts` regenerates the `dist/<harness>/`
+trees. The core uses the same building blocks in every harness:
 
-## Key documentation
+- **Skills** (`skills/aidlc/`) — Orchestrator (`SKILL.md`), stage protocol, and 32 stage files across 5 phases (initialization, ideation, inception, construction, operation)
+- **Agents** (`agents/`) — 11 domain-expert personas as `aidlc-<role>-agent.md` files: product, design, delivery, architect, aws-platform, compliance, devsecops, developer, quality, pipeline-deploy, operations
+- **Rules** (`rules/`) — Flat layered config: `aidlc-org.md` (framework defaults), `aidlc-team.md` (affirmed practices), `aidlc-project.md` (project overrides), and `aidlc-phase-<phase>.md` for ideation/inception/construction/operation
+- **Sensors** (`sensors/`) — Deterministic verification manifests (advisory): `aidlc-required-sections.md`, `aidlc-upstream-coverage.md`, `aidlc-linter.md`, `aidlc-type-check.md`
+- **Knowledge** (`knowledge/`) — Methodology reference. Per-agent under `aidlc-<agent>-agent/`; cross-agent material in `aidlc-shared/`
+- **Tools** (`tools/`) — TypeScript CLI tools, all prefixed `aidlc-*.ts` and run via bun
+- **Hooks** (`hooks/`) — 10 framework hooks, all prefixed `aidlc-*.ts`, covering audit emission, sensor dispatch, runtime-graph compile, session lifecycle, state validation, subagent tracking, statusline rendering, and forwarding-loop enforcement (the `Stop` hook — the first flow-altering hook)
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution process and conventions
-- [docs/ADMINISTRATIVE_GUIDE.md](docs/ADMINISTRATIVE_GUIDE.md) — CI/CD architecture,
-  protected environments, secrets, permissions, and release process
-- [docs/DEVELOPERS_GUIDE.md](docs/DEVELOPERS_GUIDE.md) — running CodeBuild locally,
-  security scanner details and remediation instructions
-- [docs/WORKING-WITH-AIDLC.md](docs/WORKING-WITH-AIDLC.md) — user guide for the
-  AI-DLC methodology (context management, prompt patterns, phase walkthroughs)
-- [docs/GENERATED_DOCS_REFERENCE.md](docs/GENERATED_DOCS_REFERENCE.md) — complete
-  reference for the `aidlc-docs/` directory structure generated during workflows
-- [docs/writing-inputs/](docs/writing-inputs/) — guides and examples for vision and
-  technical environment documents
+## Working on This Project
 
-**Which docs to read by task type:**
+- **Edit `core/` (or `harness/<name>/`), never `dist/`.** `dist/<harness>/` is generated. After editing, run `bun scripts/package.ts` to regenerate and `bun scripts/package.ts --check` to confirm no drift (the CI guard fails on a hand-edited or stale dist).
+- The orchestrator skill (`harness/<name>/skills/aidlc/SKILL.md`) is per-harness; the engine and methodology live in `core/`.
+- `harness/claude/CLAUDE.md` is the user-facing CLAUDE.md that ships in `dist/claude/` — it is NOT this file. Edit it when changing user-facing Claude behavior (commands, prerequisites, conventions); the Kiro/Codex equivalents are each harness's `AGENTS.md` (codex's is emitted from CLAUDE.md by `harness/codex/emit.ts`).
+- "harness" has three senses in this repo: `harness/` (top-level, the per-CLI distribution surfaces — this effort), `docs/harness-engineering/` (the Harness Engineer Guide), and `tests/harness/` (test-suite helper library) — unrelated.
+- See `docs/guide/` (User Guide), `docs/harness-engineering/` (Harness Engineer Guide), and `docs/reference/` (Developer Reference) for full documentation
 
-- CI/CD, workflows, or releases → `ADMINISTRATIVE_GUIDE.md`, `DEVELOPERS_GUIDE.md`
-- aidlc-rules content → `WORKING-WITH-AIDLC.md`, `GENERATED_DOCS_REFERENCE.md`
-- Vision or technical environment documents → `docs/writing-inputs/`
+## Test Suite
 
-## Setup commands
+Run `bash tests/run-tests.sh --help` for levels and flags. See `docs/reference/09-testing.md` for full strategy.
 
-```bash
-# Lint all markdown files
-npx markdownlint-cli2 "**/*.md"
+## Utility Handler Checklist
 
-# Fix markdown lint issues automatically
-npx markdownlint-cli2 --fix "**/*.md"
+See `docs/reference/11-contributing.md` § "Adding a Utility Handler" before implementing a new `/aidlc --*` command.
 
-# Run evaluator tests (from scripts/aidlc-evaluator/)
-cd scripts/aidlc-evaluator && uv run pytest
-```
+## Documentation Policy
 
-## Code style
+IMPORTANT: When adding, removing, or renaming files, directories, commands, or flags — grep `docs/` and `README.md` for stale references and update them in the same commit.
 
-- All content is Markdown — follow the `.markdownlint-cli2.yaml` configuration
-- MD013 (line length) is disabled — long URLs, tables, and code examples are acceptable
-- MD033 (inline HTML) is disabled — `<img>` tags are used for screenshots
-- MD024 (duplicate headings) is disabled — section names repeat across platform guides
-- MD036 (emphasis as heading) is disabled — bold text used as sub-labels in lists
-- MD060 (table alignment) is enforced — table pipes must be vertically aligned
-- MD040 (fenced code language) is enforced — always specify a language on code fences
-- Commit messages follow [conventional commits](https://www.conventionalcommits.org/)
-  (e.g., `feat:`, `fix:`, `docs:`, `chore:`)
+## Changelog Policy
 
-## Testing instructions
+IMPORTANT: Every user-visible PR bumps `core/tools/aidlc-version.ts` (the authored source; the per-harness `dist/<harness>/.../tools/aidlc-version.ts` copies are regenerated by `bun scripts/package.ts`), bumps the README badge, and adds a matching `## [X.Y.Z] - YYYY-MM-DD` heading + bullet(s) to `CHANGELOG.md` in the same commit. Patch versions accumulate through a release-prep cycle; the eventual minor cut (e.g. `v0.7.0`) consolidates them. Pure doc sweeps, internal refactors, and test-only changes do NOT bump — those live in commit messages and the design notes under `docs/`. The pin in `tests/unit/t68-version-changelog-sync.test.ts` enforces that the shipped `aidlc-version.ts`, the latest `CHANGELOG.md` heading, and the README badge agree.
 
-- Test rule changes with at least one supported platform (Amazon Q Developer, Kiro,
-  Cursor, Cline, Claude Code, or GitHub Copilot) before submitting
-- If adding or updating installation instructions, test on macOS, Windows CMD, and
-  Windows PowerShell
-- Run `npx markdownlint-cli2 "**/*.md"` before committing to catch lint issues
-- The pre-commit hook runs markdownlint automatically if configured
+Each entry follows the shape: `## [N.N.N] - YYYY-MM-DD` heading, one-paragraph summary that includes any upgrade instruction, then a flat bullet list focused on what users actually invoke (commands, flags, errors they see, breaking changes for CI/scripts).
 
-## PR instructions
-
-- PR titles must follow conventional commits format (e.g., `fix: description`)
-- Always include this contributor statement at the end of the PR body:
-
-  > By submitting this pull request, I confirm that you can use, modify, copy,
-  > and redistribute this contribution, under the terms of the
-  > [project license](https://github.com/awslabs/aidlc-workflows/blob/main/LICENSE).
-
-- CI enforces: conventional commit title, contributor statement, markdownlint, and
-  a do-not-merge label check
-- Use the structure from `.github/pull_request_template.md`
-
-## Security scanners
-
-Six scanners run on every push to `main`, every PR, and daily. All HIGH and CRITICAL
-findings must be remediated or have documented risk acceptance before merge.
-
-| Scanner  | Detects                | Fails on                    | Config                                      |
-| -------- | ---------------------- | --------------------------- | ------------------------------------------- |
-| Bandit   | Python SAST issues     | High confidence findings    | `.bandit`                                   |
-| Semgrep  | Multi-language SAST    | Any finding (PRs: new only) | `.semgrepignore`                            |
-| Grype    | Dependency CVEs        | High/critical CVEs          | `.grype.yaml`                               |
-| Gitleaks | Secrets in git history | Any non-baselined secret    | `.gitleaks.toml`, `.gitleaks-baseline.json` |
-| Checkov  | IaC misconfigurations  | Any check failure           | `.checkov.yaml`                             |
-| ClamAV   | Malware                | Any detection               | None                                        |
-
-Inline suppression patterns:
-
-- Bandit: `# nosec BXXX — justification`
-- Semgrep: `# nosemgrep: rule-id — justification`
-- Checkov: `# checkov:skip=CKV_ID:justification`
-
-For full remediation and suppression details, see
-[docs/DEVELOPERS_GUIDE.md](docs/DEVELOPERS_GUIDE.md#security-scanners).
-
-## Important constraints
-
-- The folder names `aws-aidlc-rules/` and `aws-aidlc-rule-details/` are part of the
-  public contract — do not rename, move, or reorganize them
-- Do not duplicate content across rules — place shared guidance in `common/` and
-  reference it
-- Keep the core methodology IDE/agent/model agnostic
-- Security issues must be reported via
-  [AWS vulnerability reporting](http://aws.amazon.com/security/vulnerability-reporting/),
-  not public GitHub issues
-- `CHANGELOG.md` is auto-generated by git-cliff — do not edit manually
-
-## Agent-run snippets (added by Copilot)
-
-Short guidance for agents: prefer the repository uv wrapper and npx-based tools. Read docs/DEVELOPERS_GUIDE.md and docs/ADMINISTRATIVE_GUIDE.md before running any commands.
-
-Tests (uv):
-
-```bash
-uv run pytest
-uv run pytest --cov --cov-report=term-missing
-```
-
-Markdown lint (npx):
-
-```bash
-npx markdownlint-cli2 "**/*.md"
-npx markdownlint-cli2 --fix "**/*.md"
-```
-
-Dockerized security scans (recommended for local, cross-platform):
-
-```bash
-# Grype
-docker run --rm -v "$PWD:/workspace" anchore/grype:latest grype dir:/workspace -o sarif=grype.sarif
-# Gitleaks
-docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --source /repo --report-format sarif --report-path gitleaks.sarif
-# Semgrep
-docker run --rm -v "$PWD:/src" returntocorp/semgrep semgrep --config=r/all --sarif /src > semgrep.sarif
-# Checkov
-docker run --rm -v "$PWD:/src" bridgecrew/checkov --directory /src --output-file-path checkov.sarif --output sarif
-# Bandit
-docker run --rm -v "$PWD:/src" python:3.12-slim bash -c "pip install -q bandit && bandit -r /src -f sarif -o /src/bandit.sarif"
-# ClamAV
-docker run --rm -v "$PWD:/data" mkodockx/docker-clamav clamscan -r /data --log=/data/clamdscan.txt
-```
-
-Notes:
-
-- These commands write SARIF/text artifacts to the project root so CI/agents can consume them.
-- CI already runs scanners; use these for local verification when Docker is available.
-- If Docker is unavailable, use the platform-specific installs documented in docs/DEVELOPERS_GUIDE.md.
+Conflict-trap: when two PRs both bump `aidlc-version.ts` to the same patch number, the second-to-merge resolves by rebasing and re-bumping (e.g. `0.6.5` → `0.6.6`) plus renaming its `## [0.6.5]` heading to match. t68 catches a missed CHANGELOG bullet AND duplicate `## [N.N.N]` headings post-rebase. (CHANGELOG version link references were removed in v0.6.9 — a distributed file should not embed a repository host — so there is no longer a `[N.N.N]:` link reference to keep in sync; t68 guards that none reappear.)

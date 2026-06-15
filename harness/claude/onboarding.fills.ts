@@ -1,0 +1,38 @@
+// harness/claude/onboarding.fills.ts — Claude Code's onboarding-doc fills.
+// Rendered with core/templates/onboarding.md by scripts/onboarding.ts into
+// dist/claude/.claude/CLAUDE.md. {{HARNESS_DIR}} stays for the packager transform.
+
+import type { OnboardingFills } from "../../scripts/onboarding.ts";
+
+const fills: OnboardingFills = {
+  invoke: "/aidlc",
+  slots: {
+    title_block: `# Project Name <!-- Replace with your project name -->
+
+This project uses AI-DLC (AI-Driven Development Life Cycle) for structured development. Run \`/aidlc\` followed by a scope or project description to begin. Run \`/aidlc --init\` to scaffold the full \`aidlc-docs/\` directory tree without starting a workflow (\`--init --force\` overwrites an existing workspace). Run \`/aidlc --doctor\` to validate your setup. Run \`/aidlc --version\` to print the framework version. Run \`/aidlc --stage <slug>\` to jump to a specific stage, \`/aidlc --phase <name>\` to jump to a phase, \`/aidlc --depth <level>\` to override depth, \`/aidlc --test-strategy <level>\` to override test volume, or \`/aidlc --test-run\` to auto-approve gates for CI/automated runs.`,
+
+    prereq_bullets: `- **bun**: Required for CLI tools and hook scripts (state management, audit logging, jump orchestration). Install via \`curl -fsSL https://bun.sh/install | bash\`. On Windows: \`npm install -g bun\` or \`powershell -c "irm bun.sh/install.ps1 | iex"\`. Startup is ~20ms. **Important**: \`bun\` must be on your PATH for non-interactive shells. Claude Code runs your shell non-interactively, so it sources \`~/.zshenv\` (zsh) or \`~/.bashrc\` (bash) — NOT \`~/.zshrc\`. On Windows with Git Bash, \`~/.bashrc\` is the correct file. If \`which bun\` fails inside Claude Code, add the bun PATH export to the appropriate file.
+- **AWS Bedrock access**: The shipped \`.claude/settings.json\` defaults the orchestrator to Opus 4.8 with the 1M-context variant via AWS Bedrock (\`global.anthropic.claude-opus-4-8\`), sets \`AWS_REGION\` to \`us-east-1\`, and pins global Bedrock model IDs for Fable, Opus, Sonnet, and Haiku. You need Bedrock model access enabled and AWS credentials on the default SDK credential chain to run the framework as shipped. If your region isn't \`us-east-1\`, override \`AWS_REGION\` in \`.claude/settings.local.json\`. Full setup (model access, IAM, credentials, region) is in \`docs/guide/01-getting-started.md\` § "AWS Bedrock Setup".
+- **MCP servers (optional)**: \`.mcp.json\` (project root, beside \`.claude/\`) declares the MCP servers available to the framework. \`context7\` (library/SDK documentation lookups) is an HTTP server that reads \`CONTEXT7_API_KEY\` from your environment. The four AWS servers (\`aws-mcp\`, \`aws-pricing\`, \`aws-iac\`, \`aws-serverless\`) launch via \`uvx\` and authenticate with your standard AWS credential chain — they require an AWS account with IAM credentials available to your shell (install \`uv\`/\`uvx\` via \`curl -fsSL https://astral.sh/uv/install.sh | sh\`). All credentials flow through environment passthrough; no keys are committed. Servers you have no credentials for are simply unavailable and never block a workflow. Declared servers are provisioned to the session and **inherited by every agent** — there is no per-agent grant; agents that should be prevented from using a server are narrowed via their \`tools:\` allowlist with fully-qualified \`mcp__<server>__<tool>\` ids.`,
+
+    prereq_bullets_tail: `- **Settings**: \`.claude/settings.json\` pre-approves tools (Read, Edit, Write, Bash, Glob, Grep, Task, WebSearch) so workflows run without per-call permission prompts.
+- **Personal overrides**: Copy \`.claude/settings.local.json.example\` to \`.claude/settings.local.json\` (gitignored) to override the model or set environment variables without affecting shared settings.`,
+
+    agents_note: `Each is a flat \`.md\` file prefixed \`aidlc-<role>-agent.md\`; the conductor adopts the persona inline, or delegates to it via the \`Task\` tool for the two subagent stages (2.1, 3.5).`,
+
+    structure_extra: "",
+
+    guide_pointer: "",
+
+    sections_before_resumption: "",
+
+    sections_after_resumption: `## Automated Testing
+
+The \`--test-run\` flag (\`/aidlc bugfix --test-run\`) auto-approves all approval gates and question stages for automated testing. It is intended for CI/test environments only — not for interactive use. State tracking, audit logging, and artifact generation all continue normally.
+`,
+
+    gitignore_extra: `- \`.claude/settings.local.json\``,
+  },
+};
+
+export default fills;
