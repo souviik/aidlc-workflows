@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.10] - 2026-06-16
+
+Raises the shipped reasoning-effort default to **xhigh** for the AI-DLC orchestrator on both the Claude Code and Kiro CLI harnesses (the model pin — Opus 4.8 — is unchanged). The orchestrator runs a long forwarding loop where deeper reasoning earns its cost, so xhigh is now the out-of-the-box default rather than high. Codex is unaffected (it ships a different model family by design). Re-copy your `dist/<harness>/` to pick it up; override per session if you prefer a lighter tier.
+
+* **Claude Code:** `settings.json` now sets `"effortLevel": "xhigh"` (was `high`), and `settings.local.json.example` carries the same so a copied override starts at parity. Lower it per session via the effort selector, or edit `effortLevel` in your local settings.
+* **Kiro CLI:** `.kiro/settings/cli.json` now ships `chat.modelDefaults` defaulting `claude-opus-4.8` to `xhigh` effort. Override per session with `/effort <level>` or `kiro-cli chat --effort <level>` (low|medium|high|xhigh|max); a session flag and your user-level `~/.kiro/settings/cli.json` both take precedence over the workspace default.
+* No new commands or flags; no breaking change for CI or scripts.
+
 ## [0.7.9] - 2026-06-16
 
 Extends the Stop-hook human-wait carve-out (v0.7.8) to the last common case: a **mid-stage clarifying question**. When the conductor asks you something mid-stage, the stage stays `[-]` in-progress — indistinguishable, by checkbox state alone, from a conductor that quit mid-work — so v0.7.8 deliberately left it to the block cap. The hook now reads the stage's `<slug>-questions.md`: when it carries an unanswered `[Answer]:` tag (a question is genuinely pending) the stop is allowed, so the workflow waits for your answer instead of nudging itself (and, as issue #356 saw, self-answering). The carve-out is strictly gated — it never fires under autonomous Construction (`Construction Autonomy Mode: autonomous`), where the loop must keep running unattended — and is positive-confirmation + fail-open like its siblings. Re-copy your `dist/<harness>/` to pick it up.

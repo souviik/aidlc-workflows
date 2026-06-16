@@ -88,6 +88,19 @@ describe("t148 dist/kiro file structure", () => {
     expect(s["chat.defaultAgent"]).toBe("aidlc");
   });
 
+  test("workspace defaults opus-4.8 to xhigh effort via chat.modelDefaults", () => {
+    // The shipped cli.json raises reasoning effort to xhigh for the pinned
+    // orchestrator model (claude-opus-4.8 — exactly as agents/aidlc.json pins
+    // it). Kiro's per-model default sub-path is output_config.effort (per
+    // kiro.dev/docs/cli/chat/effort). Pin it so the default can't regress.
+    const s = readJson(join(K, "settings", "cli.json"));
+    const defaults = s["chat.modelDefaults"] as Record<
+      string,
+      { output_config?: { effort?: string } }
+    >;
+    expect(defaults?.["claude-opus-4.8"]?.output_config?.effort).toBe("xhigh");
+  });
+
   test("kiro skills carry the kiro tool prefix, never the claude one", () => {
     const skill = readFileSync(join(K, "skills", "aidlc", "SKILL.md"), "utf-8");
     expect(skill).toContain("bun .kiro/tools/");

@@ -74,6 +74,7 @@ interface Settings {
   permissions?: { allow?: string[] };
   statusLine?: { command?: string };
   model?: string;
+  effortLevel?: string;
   env?: Record<string, string>;
 }
 const settings: Settings = JSON.parse(RAW);
@@ -126,6 +127,16 @@ describe("orchestrator model pin [.sh test 11]", () => {
   test("model is pinned to opus[1m]", () => {
     // .sh asserted exact string equality (`[ "$MODEL" = "opus[1m]" ]`).
     expect(settings.model).toBe("opus[1m]");
+  });
+});
+
+describe("orchestrator reasoning-effort pin", () => {
+  // The shipped default raises reasoning effort to xhigh (the orchestrator runs
+  // a long forwarding loop where deeper reasoning earns its cost). Valid Claude
+  // Code effortLevel tiers: low|medium|high|xhigh|max. Pin xhigh so the default
+  // can't silently regress to high.
+  test("effortLevel is pinned to xhigh", () => {
+    expect(settings.effortLevel).toBe("xhigh");
   });
 });
 

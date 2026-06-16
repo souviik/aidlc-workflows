@@ -30,6 +30,13 @@ so the AI-DLC conductor agent is active by default — `/aidlc` just works.
 have configured**; if you prefer your own default, remove that setting and use
 `kiro-cli chat --agent aidlc` instead.
 
+The same `cli.json` also ships an `xhigh` reasoning-effort default for the
+pinned orchestrator model (`claude-opus-4.8`) via `chat.modelDefaults`, so the
+conductor reasons at full depth out of the box. Override it per session with
+`/effort <level>` in chat or `kiro-cli chat --effort <level>`
+(low|medium|high|xhigh|max) — a session flag and your user-level
+`~/.kiro/settings/cli.json` both take precedence over the workspace default.
+
 ## Usage
 
 Identical to the Claude Code harness: `/aidlc <description>` starts a
