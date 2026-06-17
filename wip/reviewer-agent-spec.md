@@ -87,9 +87,9 @@ Reviewers are distinct from builders. A reviewer has:
 - No access to builder's reasoning (clean-room review)
 
 **New files:**
-- `core/agents/aidlc-architecture-reviewer-agent.md`
-- `core/agents/aidlc-requirements-reviewer-agent.md`
-- `core/agents/aidlc-code-reviewer-agent.md`
+- `core/agents/aidlc-product-lead-reviewer-agent.md` — reviews requirements, stories, mockups (product quality lens)
+- `core/agents/aidlc-architecture-reviewer-agent.md` — reviews design stages (technical soundness lens)
+- `core/agents/aidlc-code-reviewer-agent.md` — reviews generated code (implementation quality lens)
 
 Or alternatively, one generic reviewer persona with different skills loaded per stage type. Design decision needed.
 
@@ -286,19 +286,28 @@ Note: reviewer does NOT get "write" tool access to source code. Only "read" (to 
 
 ## Stages to Start With (MVP)
 
-| Stage | Reviewer | Rationale |
-|---|---|---|
-| requirements-analysis | aidlc-requirements-reviewer-agent | Requirements are the foundation — gaps here cascade |
-| application-design | aidlc-architecture-reviewer-agent | Architecture decisions are expensive to reverse |
-| functional-design | aidlc-architecture-reviewer-agent | Business logic correctness matters |
-| infrastructure-design | aidlc-architecture-reviewer-agent | Infra mistakes are expensive at deployment |
-| code-generation | aidlc-code-reviewer-agent | Code quality directly affects the product |
+| Stage | Reviewer | Rationale | Status |
+|---|---|---|---|
+| requirements-analysis | aidlc-product-lead-reviewer-agent | Requirements are the foundation — gaps here cascade | ☑ |
+| user-stories | aidlc-product-lead-reviewer-agent | Stories must be complete, testable, INVEST-compliant | ☑ |
+| rough-mockups | aidlc-product-lead-reviewer-agent | Wireframes must reflect user needs and requirements | ☑ |
+| refined-mockups | aidlc-product-lead-reviewer-agent | Detailed mockups must align with stories and be implementable | ☑ |
+| application-design | aidlc-architecture-reviewer-agent | Architecture decisions are expensive to reverse | ☑ |
+| functional-design | aidlc-architecture-reviewer-agent | Business logic correctness matters | ☑ |
+| nfr-requirements | aidlc-architecture-reviewer-agent | Quality attributes must be measurable and achievable | ☑ |
+| nfr-design | aidlc-architecture-reviewer-agent | Tech decisions must align with NFRs | ☑ |
+| infrastructure-design | aidlc-architecture-reviewer-agent | Infra mistakes are expensive at deployment | ☑ |
+| units-generation | aidlc-architecture-reviewer-agent | Unit boundaries affect all downstream work | ☑ |
+| code-generation | aidlc-code-reviewer-agent | Code quality directly affects the product | ☑ |
 
-Stages that likely DON'T need a reviewer (MVP):
+Stages that DON'T get a reviewer (MVP):
 - Initialization (deterministic, no artifacts to review)
 - Intent capture (too early, too fluid)
 - Market research, feasibility (exploratory, not prescriptive)
-- Delivery planning (scheduling, not design)
+- Team formation, delivery planning (scheduling, not design)
+- Scope definition, approval-handoff (process stages)
+- Build-and-test (verification is the stage itself)
+- CI pipeline, deployment stages (operational, not design)
 
 ---
 

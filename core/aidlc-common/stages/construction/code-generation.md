@@ -6,6 +6,8 @@ condition: Always executes for every unit in the execution plan.
 lead_agent: aidlc-developer-agent
 support_agents: []
 mode: subagent
+reviewer: aidlc-developer-agent
+reviewer_max_iterations: 2
 for_each: unit-of-work
 produces:
   - code-generation-plan

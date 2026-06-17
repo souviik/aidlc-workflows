@@ -9,6 +9,8 @@ support_agents:
   - aidlc-compliance-agent
   - aidlc-quality-agent
 mode: inline
+reviewer: aidlc-architect-agent
+reviewer_max_iterations: 2
 for_each: unit-of-work
 produces:
   - performance-requirements
