@@ -787,6 +787,11 @@ function buildRunStageDirective(
     sensors_applicable: (node.sensors_applicable ?? []).map((s) => s.id),
     stage_file: stageFileFor(node.phase, node.slug),
   };
+  // Reviewer — include if the stage declares one (§12a).
+  if (node.reviewer) {
+    directive.reviewer = node.reviewer;
+    directive.reviewer_max_iterations = node.reviewer_max_iterations ?? 2;
+  }
   // Decision D-E: bake the conductor persona into the FIRST run-stage of the
   // workflow. The optional field is omitted on every later directive (the
   // persona persists in the session once delivered). A missing conductor.md is

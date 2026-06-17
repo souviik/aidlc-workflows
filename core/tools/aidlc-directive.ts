@@ -72,6 +72,13 @@ export interface RunStageDirective {
   rules_in_context: string[];
   sensors_applicable: string[];
   stage_file: string;
+  // reviewer — the agent to invoke as a separate sub-agent for quality review
+  // after the stage body completes. Absent (undefined) when no review step is
+  // configured for this stage. See stage-protocol.md §12a.
+  reviewer?: string;
+  // reviewer_max_iterations — how many review cycles before escalating to the
+  // human. Default 2 when reviewer is present. Absent when no reviewer.
+  reviewer_max_iterations?: number;
   // conductor_persona — set ONLY on the first run-stage of a workflow (decision
   // D-E, SPIKE 6). The engine reads `.claude/aidlc-common/conductor.md` and bakes
   // its contents here so the conductor receives its execution-quality charter
@@ -206,6 +213,8 @@ const RUN_STAGE_FIELDS = [
   "rules_in_context",
   "sensors_applicable",
   "stage_file",
+  "reviewer",
+  "reviewer_max_iterations",
   "conductor_persona",
 ] as const;
 

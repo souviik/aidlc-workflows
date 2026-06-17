@@ -133,6 +133,13 @@ export interface GraphStage extends StageEntry {
   // sensors_applicable is REQUIRED — assigned [] when stage.sensors is
   // absent/empty. Same compile-baked discipline as rules_in_context.
   sensors_applicable: SensorResolution[];
+  // reviewer — the agent to invoke as a quality gate after the stage body.
+  // Absent when no review step is configured. Parsed from stage frontmatter
+  // `reviewer:` field and carried through to the run-stage directive.
+  reviewer?: string;
+  // reviewer_max_iterations — review cycle cap before escalating to human.
+  // Defaults to 2 when reviewer is present.
+  reviewer_max_iterations?: number;
 }
 
 export interface ScopeValidation {
