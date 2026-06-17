@@ -7,7 +7,7 @@ lead_agent: aidlc-architect-agent
 support_agents:
   - aidlc-delivery-agent
 mode: inline
-reviewer: aidlc-architect-agent
+reviewer: aidlc-architecture-reviewer-agent
 reviewer_max_iterations: 2
 produces:
   - unit-of-work

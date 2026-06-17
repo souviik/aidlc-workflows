@@ -8,7 +8,7 @@ support_agents:
   - aidlc-devsecops-agent
   - aidlc-compliance-agent
 mode: inline
-reviewer: aidlc-architect-agent
+reviewer: aidlc-architecture-reviewer-agent
 reviewer_max_iterations: 2
 for_each: unit-of-work
 produces:

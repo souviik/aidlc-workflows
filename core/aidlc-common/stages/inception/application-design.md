@@ -8,7 +8,7 @@ support_agents:
   - aidlc-aws-platform-agent
   - aidlc-design-agent
 mode: inline
-reviewer: aidlc-architect-agent
+reviewer: aidlc-architecture-reviewer-agent
 reviewer_max_iterations: 2
 produces:
   - components

@@ -7,7 +7,7 @@ lead_agent: aidlc-architect-agent
 support_agents:
   - aidlc-aws-platform-agent
 mode: inline
-reviewer: aidlc-architect-agent
+reviewer: aidlc-architecture-reviewer-agent
 reviewer_max_iterations: 2
 for_each: unit-of-work
 produces:
