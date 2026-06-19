@@ -161,7 +161,14 @@ export function renderMarkdown(data: ReportData): string {
   }
   if (data.qualitative) {
     const icon = qualScore >= 0.8 ? "🟢" : qualScore >= 0.6 ? "🟡" : "🔴";
-    w(`| Qualitative Score | ${icon} **${pyFixed(qualScore, 2)}**${mdDelta(cmp, "Qualitative Score")} |`);
+    w(`| Qualitative (LLM) | ${icon} **${pyFixed(qualScore, 2)}**${mdDelta(cmp, "Qualitative Score")} |`);
+    // Dual-scoring: the deterministic heuristic cross-check, co-equal in the
+    // Verdict but NOT baseline-compared (different scale from the LLM-judged golden).
+    const hScore = data.qualitative.heuristic_overall_score;
+    if (hScore !== undefined && hScore !== null) {
+      const hIcon = hScore >= 0.8 ? "🟢" : hScore >= 0.6 ? "🟡" : "🔴";
+      w(`| Qualitative (heuristic) | ${hIcon} **${pyFixed(hScore, 2)}** _(deterministic cross-check)_ |`);
+    }
   }
   w(`| Execution Time | ${msToHuman(data.metrics.wall_clock_ms)}${mdDelta(cmp, "Wall Clock (ms)")} |`);
   w(`| Total Tokens | ${fmtTokens(data.metrics.total_tokens.total_tokens)}${mdDelta(cmp, "Total Tokens")} |`);
@@ -388,8 +395,18 @@ export function renderMarkdown(data: ReportData): string {
     w("## Qualitative Evaluation (Semantic Similarity)");
     w("");
     const scoreIcon = ql.overall_score >= 0.8 ? "🟢" : ql.overall_score >= 0.6 ? "🟡" : "🔴";
-    w(`**Overall Score: ${scoreIcon} ${pyFixed(ql.overall_score, 4)}**`);
+    w(`**Overall Score (LLM judge): ${scoreIcon} ${pyFixed(ql.overall_score, 4)}**`);
+    if (ql.heuristic_overall_score !== undefined && ql.heuristic_overall_score !== null) {
+      w("");
+      w(`**Deterministic heuristic (cross-check): ${pyFixed(ql.heuristic_overall_score, 4)}**`);
+    }
     w("");
+    // LLM-synthesized run-level narrative (dual-scoring). Rendered as a blockquote
+    // so it reads as commentary, not a metric.
+    if (ql.explanation) {
+      w("> " + ql.explanation.replace(/\n+/g, "\n> "));
+      w("");
+    }
 
     for (const phase of ql.phases) {
       w(`### ${titleCase(phase.phase)} Phase`);

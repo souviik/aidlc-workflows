@@ -63,10 +63,75 @@ function flag(name: string): boolean {
 }
 
 // ── scorer selection (G1) ────────────────────────────────────────────────────
+// Returns the LLM judge transport: --llm = first-party SDK (needs ANTHROPIC_API_KEY,
+// the Bedrock-analog of scorer.py's LlmScorer); default = AgentSdkScorer (repo's
+// claude CLI auth, no API key). --heuristic forces the offline deterministic path.
 function selectScorer(): Scorer {
   if (flag("heuristic")) return new HeuristicScorer();
   if (flag("llm")) return new LlmScorer();
   return new AgentSdkScorer(); // default: repo-consistent, no API key
+}
+
+// DUAL SCORING (default): run BOTH the LLM judge and the deterministic heuristic
+// and report them CO-EQUALLY. The LLM result remains the headline/baseline number
+// — the shipped golden.yaml is a 40-run LLM-judged median (consensus-median-40-
+// conforming-runs, qualitative_score 0.7702), so ONLY the LLM score is comparable
+// to it; the heuristic is on a different scale (golden-vs-itself = 1.0 cosine) and
+// is reported alongside as a deterministic cross-check, never fed to the baseline
+// diff. `--heuristic` or `--llm` forces a single scorer (skips the dual pass).
+interface DualQualitative {
+  llm: QualitativeResult; // headline + baseline source
+  heuristic: QualitativeResult; // deterministic cross-check
+  explanation: string; // LLM-synthesized run-level narrative (or deterministic fallback)
+}
+
+async function scoreBoth(goldenDocs: string, aidlcDocs: string): Promise<DualQualitative> {
+  // The LLM judge (default transport) is the headline; heuristic runs alongside.
+  const llmScorer = flag("llm") ? new LlmScorer() : new AgentSdkScorer();
+  const llm = await compareRuns(goldenDocs, aidlcDocs, llmScorer);
+  const heuristic = await compareRuns(goldenDocs, aidlcDocs, new HeuristicScorer());
+  const explanation = await explainQualitative(llm, heuristic);
+  return { llm, heuristic, explanation };
+}
+
+// LLM-generated holistic explanation of the run's qualitative result. Synthesized
+// ONCE from the per-doc scores + notes the judge already produced (KNOWLEDGE→LLM,
+// behind the same claude-CLI transport as AgentSdkScorer). Deterministic fallback
+// on any error so a default run never crashes on the narrative (mirrors the
+// scorers' heuristic fallback). Skipped entirely under --heuristic (no LLM in play).
+async function explainQualitative(
+  llm: QualitativeResult,
+  heuristic: QualitativeResult,
+): Promise<string> {
+  const deterministic =
+    `Overall LLM similarity ${llm.overall_score.toFixed(2)} vs deterministic ` +
+    `heuristic ${heuristic.overall_score.toFixed(2)} across ` +
+    `${llm.phases.length} phase(s); ` +
+    `${llm.unmatched_candidate.length} unmatched candidate doc(s).`;
+  if (flag("heuristic")) return deterministic; // no LLM transport selected
+  try {
+    const { query } = await import("@anthropic-ai/claude-agent-sdk");
+    const perDoc = llm.phases
+      .flatMap((p) => p.documents.map((d) => `- ${d.relative_path} (${d.overall.toFixed(2)}): ${d.notes}`))
+      .join("\n")
+      .slice(0, 6000);
+    const prompt =
+      `You are summarizing an AI-DLC evaluation. The candidate run scored ` +
+      `${llm.overall_score.toFixed(2)} (LLM judge) / ${heuristic.overall_score.toFixed(2)} ` +
+      `(deterministic heuristic) for document similarity vs the golden reference.\n\n` +
+      `Per-document LLM judgments:\n${perDoc}\n\n` +
+      `Write a 3-5 sentence plain-English explanation of what the candidate got ` +
+      `right, where it diverged from the reference, and what the score reflects. ` +
+      `No preamble, no markdown headings.`;
+    const run = query({ prompt, options: { maxTurns: 1 } });
+    let text = "";
+    for await (const m of run as AsyncIterable<any>) {
+      if (m.type === "result" && typeof m.result === "string") text = m.result;
+    }
+    return text.trim() || deterministic;
+  } catch {
+    return deterministic;
+  }
 }
 
 // ── empty ReportData scaffold (collector dataclass defaults) ─────────────────
@@ -196,14 +261,25 @@ async function evaluateOnly(): Promise<void> {
     }
   }
 
-  // Stage 5 — qualitative (AgentSdkScorer by default; --heuristic / --llm).
+  // Stage 5 — qualitative. Default: BOTH scorers (LLM headline + heuristic
+  // cross-check + LLM explanation). --heuristic / --llm forces a single scorer.
   let qualitative: QualitativeResult | null = null;
   if (aidlcDocs && goldenDocs) {
-    console.error("[stage 5] qualitative…");
-    const scorer = selectScorer();
     try {
-      qualitative = await compareRuns(goldenDocs, aidlcDocs, scorer);
-      data.qualitative = toCollectorQualitative(qualitative);
+      if (flag("heuristic") || flag("llm")) {
+        console.error("[stage 5] qualitative (single scorer)…");
+        qualitative = await compareRuns(goldenDocs, aidlcDocs, selectScorer());
+        data.qualitative = toCollectorQualitative(qualitative);
+      } else {
+        console.error("[stage 5] qualitative (LLM + heuristic)…");
+        const dual = await scoreBoth(goldenDocs, aidlcDocs);
+        qualitative = dual.llm; // headline + the stage-5 YAML persisted below
+        data.qualitative = {
+          ...toCollectorQualitative(dual.llm),
+          heuristic_overall_score: dual.heuristic.overall_score,
+          explanation: dual.explanation,
+        };
+      }
     } catch (e) {
       console.error("  skipped:", String(e));
     }
@@ -553,16 +629,27 @@ async function runMode(): Promise<void> {
     }
   }
 
-  // 4c. qualitative → qualitative-comparison.yaml (compareRuns(outputPath)).
+  // 4c. qualitative → qualitative-comparison.yaml (+ heuristic sidecar by default).
   if (goldenDocs) {
-    console.error("[run] qualitative comparison…");
     try {
-      await compareRuns(
-        goldenDocs,
-        result.aidlcDocsDir,
-        selectScorer(),
-        join(out, "qualitative-comparison.yaml"),
-      );
+      if (flag("heuristic") || flag("llm")) {
+        // Single-scorer (explicit) — byte-stable qualitative-comparison.yaml.
+        console.error("[run] qualitative comparison (single scorer)…");
+        await compareRuns(goldenDocs, result.aidlcDocsDir, selectScorer(), join(out, "qualitative-comparison.yaml"));
+      } else {
+        // Dual-scoring (default): LLM (headline) + heuristic cross-check + explanation.
+        console.error("[run] qualitative comparison (LLM + heuristic)…");
+        const dual = await scoreBoth(goldenDocs, result.aidlcDocsDir);
+        const { atomicYamlDump } = await import("./yaml.ts");
+        atomicYamlDump(qualitativeToDict(dual.llm), join(out, "qualitative-comparison.yaml"));
+        atomicYamlDump(
+          { ...qualitativeToDict(dual.heuristic), explanation: dual.explanation },
+          join(out, "qualitative-comparison-heuristic.yaml"),
+        );
+        console.error(
+          `[run]   LLM ${dual.llm.overall_score.toFixed(2)} · heuristic ${dual.heuristic.overall_score.toFixed(2)}`,
+        );
+      }
     } catch (e) {
       console.error("  skipped:", String(e));
     }

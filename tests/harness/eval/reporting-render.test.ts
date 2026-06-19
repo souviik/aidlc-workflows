@@ -544,3 +544,47 @@ describe("TestReportIntegration", () => {
     expect(md).not.toContain("Baseline Comparison");
   });
 });
+
+// ── Dual-scoring render (LLM headline + heuristic cross-check + explanation) ──
+// Pins the report surface for the default two-scorer mode (run.ts scoreBoth):
+// the Verdict carries BOTH a "Qualitative (LLM)" and a "Qualitative (heuristic)"
+// row, and the Qualitative section renders the LLM-synthesized explanation. The
+// single-scorer (legacy) shape must NOT show the heuristic row or explanation.
+describe("dual-scoring render", () => {
+  test("verdict shows both LLM and heuristic rows when dual fields present", () => {
+    const data = reportData({
+      qualitative: qualitativeResults({
+        overall_score: 0.77,
+        heuristic_overall_score: 0.74,
+        explanation: "Faithful FastAPI design; narrowed operation surface.",
+      }),
+    });
+    const md = renderMarkdown(data);
+    expect(md).toContain("Qualitative (LLM)");
+    expect(md).toContain("Qualitative (heuristic)");
+    expect(md).toContain("deterministic cross-check");
+  });
+
+  test("qualitative section renders the LLM explanation as a blockquote", () => {
+    const data = reportData({
+      qualitative: qualitativeResults({
+        overall_score: 0.77,
+        heuristic_overall_score: 0.74,
+        explanation: "Faithful FastAPI design; narrowed operation surface.",
+      }),
+    });
+    const md = renderMarkdown(data);
+    expect(md).toContain("Deterministic heuristic (cross-check): 0.7400");
+    expect(md).toContain("> Faithful FastAPI design; narrowed operation surface.");
+  });
+
+  test("single-scorer shape omits the heuristic row + explanation", () => {
+    // No heuristic_overall_score / explanation (the --heuristic / --llm path).
+    const data = reportData({ qualitative: qualitativeResults({ overall_score: 0.77 }) });
+    const md = renderMarkdown(data);
+    expect(md).not.toContain("Qualitative (heuristic)");
+    expect(md).not.toContain("Deterministic heuristic (cross-check)");
+    // The single-scorer Verdict still uses the LLM label (one row, baseline-compared).
+    expect(md).toContain("Qualitative (LLM)");
+  });
+});

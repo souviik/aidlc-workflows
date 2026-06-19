@@ -170,6 +170,13 @@ export interface QualitativeResults {
   phases: PhaseScore[];
   unmatched_reference: string[];
   unmatched_candidate: string[];
+  /** Deterministic heuristic overall score, run alongside the LLM judge as a
+   *  cross-check (dual-scoring). null when only one scorer ran or when reading
+   *  an older run folder without the sidecar. NOT fed to the baseline diff. */
+  heuristic_overall_score?: number | null;
+  /** LLM-synthesized run-level narrative of the qualitative result. null when
+   *  the heuristic-only path ran or the sidecar is absent. */
+  explanation?: string | null;
 }
 
 export interface ReportData {
@@ -491,6 +498,15 @@ export function collect(runFolder: string, generatedAt = ""): ReportData {
       unmatched_reference: raw.unmatched_reference ?? [],
       unmatched_candidate: raw.unmatched_candidate ?? [],
     };
+
+    // Dual-scoring sidecar (additive, optional): the deterministic heuristic
+    // cross-check + the LLM-synthesized explanation. Absent for single-scorer or
+    // older run folders → the fields stay null and the renderer omits them.
+    const side = loadYaml(join(runFolder, "qualitative-comparison-heuristic.yaml"));
+    if (side) {
+      report.qualitative.heuristic_overall_score = side.overall_score ?? null;
+      if (typeof side.explanation === "string") report.qualitative.explanation = side.explanation;
+    }
   }
 
   return report;
