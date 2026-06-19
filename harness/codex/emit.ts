@@ -3,7 +3,7 @@
 // The unified packager copies core/ → dist/codex/.codex/ (rules → aidlc-rules)
 // and runs graph compile, then calls this emit() for everything that is CODE,
 // not declarative data: the Codex config, hook wiring, trust pre-seed, the
-// AGENTS.md merge, the 11 agent TOML transpositions, and the .agents/skills/
+// AGENTS.md merge, the 13 agent TOML transpositions, and the .agents/skills/
 // tree (orchestrator + generated runners + session skills + openai.yaml guards).
 //
 // Ported faithfully from the proven scripts/package-codex.ts emission half
@@ -193,7 +193,7 @@ function emitTrustSeed(): string {
   );
 }
 
-// --- Agent transposition: 11 persona .md → .codex/agents/*.toml -------------
+// --- Agent transposition: 13 persona .md → .codex/agents/*.toml -------------
 const D7_MODEL_MAP: Record<string, string> = {
   opus: "openai.gpt-5.5",
   sonnet: "openai.gpt-5.4",

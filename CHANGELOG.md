@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.3] - 2026-06-19
+
+Brings the 2.0.0 reviewer mechanism up to scratch across harnesses so it actually runs everywhere and can't write outside its lane. Three self-contained defects are fixed: the reviewer step was missing entirely from the Codex orchestrator (a stage's `reviewer:` was silently ignored on Codex), the Kiro reviewer sub-agents were not trusted by the conductor (so invoking them prompted/blocked), and the Kiro reviewer agents were granted unrestricted `fs_write` (broader than the builders they review). No change to per-unit / swarm reviewer behaviour. Re-copy your `dist/<harness>/` to pick up the regenerated trees — the Codex reviewer step, the Kiro trust entries, and the Kiro write cap all ship in the dist.
+
+* **The reviewer now fires on the Codex harness.** The Codex orchestrator's `gate: true` flow gained the §12a reviewer step (it was present on Claude and Kiro but absent on Codex), so a stage's `reviewer:` directive is honoured on Codex instead of silently ignored.
+* **On Kiro, the reviewer sub-agent no longer prompts for trust.** `aidlc-architecture-reviewer-agent` and `aidlc-product-lead-agent` are added to the conductor's `subagent.trustedAgents` on both Kiro CLI and Kiro IDE, so the conductor can invoke the reviewer without a trust prompt blocking the workflow.
+* **On Kiro, the reviewer can only write under `aidlc-docs/`.** The reviewer agent configs cap `fs_write` to `aidlc-docs/**` (where the `## Review` section lives), matching the conductor's path-cap pattern instead of granting unrestricted writes.
+* No new commands or flags; no breaking change for CI or scripts.
+
 ## [2.0.2] - 2026-06-18
 
 Validates the stage `reviewer:` / `reviewer_max_iterations` frontmatter fields, which were carried through schema → graph → directive by the 2.0.0 reviewer mechanism but never checked. A malformed cap, a non-positive-integer cap, a cap declared with no reviewer, or a `reviewer:` naming an agent with no `.claude/agents/*.md` file all passed validation before and surfaced only as a runtime failure or a silently-disabled review loop; they now fail validation/compile loudly and deterministically. This is a behaviour change at authoring time only — the reviewer's runtime behaviour is unchanged. Re-copy your `dist/<harness>/` to pick up the regenerated tools. Refs #389.
