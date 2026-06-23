@@ -101,10 +101,77 @@ _per-bundle_ instead of _global literal_.
 
 ### Layer 2 — Extension manifest + discovery
 
-Mirror the harness pattern. `discoverHarnessNames()` (`scripts/package.ts:66-71`)
-lists `harness/<name>/` dirs containing `manifest.ts`. Add `discoverExtensions()`
-listing `extensions/<name>/` dirs containing an `extension.ts`. An extension
-declares:
+#### Where an extension lives — the folder grammar
+
+The repo already has a three-folder grammar, and an extension is a **fourth
+axis** orthogonal to all three:
+
+| Folder | Role | Sense |
+|--------|------|-------|
+| `core/` | harness-neutral source of truth | the *what* |
+| `harness/<name>/` | per-harness projection surface | the *how to emit* |
+| `dist/<harness>/` | generated, committed output users copy in | the *result* |
+| `extensions/<name>/` | **optional, owned contribution set** | the *add-on* |
+
+An extension is not a harness (that is the emit *target*) and not core (it is
+*optional* and *owned*), so it earns its own top-level sibling directory. Two
+properties this gets right:
+
+- **Discovery mirrors harnesses.** `discoverExtensions()` scans
+  `extensions/<name>/` for an `extension.ts`, exactly as `discoverHarnessNames()`
+  (`scripts/package.ts:66-71`) scans `harness/<name>/` for `manifest.ts`. Same
+  proven open-set pattern, no new concept.
+- **An extension is harness-neutral, like `core/`.** Its internal subtree shape
+  *is* `core/`'s shape, so the packager projects it into **every** harness's
+  dist — author once, get Claude + Kiro + Codex. An extension MUST NOT be
+  authored per-harness; that would fork the very thing "one core, many
+  harnesses" avoids.
+
+Authoring layout (mirrors `core/`'s subtrees):
+
+```
+extensions/
+  ops-pro/
+    extension.ts                      # the manifest (below)
+    stages/operation/*.md             # new stages (own number range)
+    agents/aidlc-*.md                 # new agents
+    scopes/aidlc-*.md                 # new scopes
+    rules/aidlc-phase-*.md            # phase-rule additions
+    sensors/aidlc-*.md                # new sensors
+    knowledge/...                     # per-agent / shared knowledge
+    contributions/<phase>/<slug>.md   # additive deltas to existing stages (§4)
+```
+
+#### Where it lands in a consumer's install
+
+When the packager builds an enabled extension, it is projected as a **committed
+delta beside the base tree**, not interleaved into it:
+
+```
+dist/claude/.claude/                     # base (copied as today)
+dist/claude/.claude/extensions/ops-pro/  # the extension's projected files
+```
+
+The user copies `dist/<harness>/.claude/` as today; the extension rides along as
+a self-contained subtree they can include or omit. The drift guard byte-pins the
+base tree and each extension delta independently (Layer 3), so "optional" stays
+real and `--check` does not conflate the two.
+
+#### First-party vs third-party — same structure, different repo
+
+The only real fork is *whose repo the `extensions/<name>/` folder is in*:
+
+- **First-party** extensions (e.g. the operation phase, `extensions/ops-pro/`)
+  live **in this repo**, reviewed and versioned with AIDLC, shipped in `dist/`.
+- **Third-party** extensions are authored in **their own repo** with the
+  *identical* internal structure. They reach a user either by being vendored
+  into `extensions/` for a build, or installed directly into an existing
+  `dist/<harness>/.claude/extensions/<bundle>/`. `requiresBundle` (below) lets a
+  third-party extension declare a dependency on `core` or another bundle.
+
+#### The manifest
+
+`discoverExtensions()` loads each `extensions/<name>/extension.ts`:
 
 ```ts
 export default {
