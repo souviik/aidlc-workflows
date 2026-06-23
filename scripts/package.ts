@@ -111,8 +111,10 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
-// The two compiled-data files graph compile bootstraps its number/name seed
-// from. They are regenerated into every tree, never authored in core/.
+// The two compiled-data files graph compile regenerates into every tree (never
+// authored in core/). Both are fully derived from the YAML stage files — number
+// and name are now authored frontmatter, so compile needs no seed from the prior
+// JSON. This list survives only for the rules-dir path-rewrite backstop.
 const COMPILED_DATA = ["tools/data/stage-graph.json", "tools/data/scope-grid.json"];
 
 // The packager-emitted harness descriptor (vision T1 open-set seam): the
@@ -131,33 +133,13 @@ function writeHarnessData(treeRoot: string, m: HarnessManifest): void {
   writeFileSync(dst, `${JSON.stringify(data, null, 2)}\n`);
 }
 
-// Copy the committed compiled-data JSON into the assembled tree so
-// compileStageGraph() can harvest the number/name seed before it re-derives
-// (and rewrites harness-correct paths into) the file. The number/name mapping
-// is harness-INDEPENDENT (slug → number/name), so any harness's committed JSON
-// is a valid seed; compile re-derives every other field and emits
-// harness-correct paths. `seedFrom` is the committed <harnessDir> tree; if it
-// lacks the JSON (a harness's first-ever build), fall back to the committed
-// claude tree's JSON as the canonical seed-of-record.
-function seedCompiledData(treeRoot: string, seedFrom: string): void {
-  const claudeSeedRoot = join(REPO_ROOT, "dist", "claude", ".claude");
-  for (const rel of COMPILED_DATA) {
-    let src = join(seedFrom, rel);
-    if (!existsSync(src)) src = join(claudeSeedRoot, rel); // first build: seed from claude
-    if (!existsSync(src)) continue;
-    const dst = join(treeRoot, rel);
-    mkdirSync(dirname(dst), { recursive: true });
-    cpSync(src, dst);
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Build one harness tree into `outRoot` (the dist/<name> dir). Returns the set
-// of paths the copy+generate steps produced, for the orphan scan.
-// `seedFrom` is the committed <harnessDir> tree the compiled-data seed is read
-// from (the same tree under --check; a pre-sweep stash under write).
+// of paths the copy+generate steps produced, for the orphan scan. Compile is
+// deterministic from core/ sources (number + name are authored frontmatter), so
+// no compiled-data seed is copied in beforehand.
 // ---------------------------------------------------------------------------
-function buildTree(m: HarnessManifest, outRoot: string, seedFrom: string): string[] {
+function buildTree(m: HarnessManifest, outRoot: string): string[] {
   const harnessDir = m.harnessDir;
   const treeRoot = join(outRoot, harnessDir);
 
@@ -200,14 +182,9 @@ function buildTree(m: HarnessManifest, outRoot: string, seedFrom: string): strin
   }
 
   // 3. Compile the stage graph into the assembled tree (writes harness-correct
-  //    stage-graph.json + scope-grid.json). compileStageGraph() bootstraps each
-  //    stage's number + name from the EXISTING stage-graph.json (the
-  //    "computed-not-authored" seed contract — stage-definition.md), so seed the
-  //    assembled tree with the committed dist JSON before compiling. Compile is
-  //    idempotent on that seed: it re-derives every other field from the YAML
-  //    and rewrites harness-correct paths, reproducing the committed JSON
-  //    byte-for-byte. The seed is the only authored datum in the compiled file.
-  seedCompiledData(treeRoot, seedFrom);
+  //    stage-graph.json + scope-grid.json). number + name are authored in each
+  //    stage's frontmatter, so compile derives the whole file from the YAML with
+  //    no seed — it just needs the assembled tree (the copied stages + rules).
   // For a renamed-rules harness, point loadRules at the renamed dir via
   // AIDLC_RULES_DIR so rules_in_context is populated (the rules ship under
   // steering/ | aidlc-rules/, not rules/). Since the rulesSubdir() seam landed,
@@ -315,25 +292,12 @@ function writeHarness(name: string): void {
   const m = loadManifest(name);
   const distDir = join(REPO_ROOT, "dist", name);
   const treeRoot = join(distDir, m.harnessDir);
-  // Stash the committed compiled-data seed before the clean sweep so compile
-  // can bootstrap its number/name mappings (the seed survives the regenerate).
-  const seedStash = mkdtempSync(join(tmpdir(), `aidlc-seed-${name}-`));
-  try {
-    for (const rel of COMPILED_DATA) {
-      const src = join(treeRoot, rel);
-      if (existsSync(src)) {
-        const dst = join(seedStash, rel);
-        mkdirSync(dirname(dst), { recursive: true });
-        cpSync(src, dst);
-      }
-    }
-    // Clean sweep the harness dir so removed core files don't linger.
-    if (existsSync(treeRoot)) rmSync(treeRoot, { recursive: true, force: true });
-    buildTree(m, distDir, seedStash);
-    console.log(`[${name}] regenerated dist/${name}/${m.harnessDir}`);
-  } finally {
-    rmSync(seedStash, { recursive: true, force: true });
-  }
+  // Clean sweep the harness dir so removed core files don't linger. Compile is
+  // seedless now (number + name are authored frontmatter), so nothing needs to
+  // survive the sweep.
+  if (existsSync(treeRoot)) rmSync(treeRoot, { recursive: true, force: true });
+  buildTree(m, distDir);
+  console.log(`[${name}] regenerated dist/${name}/${m.harnessDir}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -345,8 +309,9 @@ function checkHarness(name: string): string[] {
   const tmp = mkdtempSync(join(tmpdir(), `aidlc-pkg-${name}-`));
   const problems: string[] = [];
   try {
-    // Seed compile from the committed tree (untouched under --check).
-    const emitWritten = buildTree(m, tmp, committed);
+    // Build into a temp dir (seedless compile; committed tree is only the diff
+    // target, never read as a seed).
+    const emitWritten = buildTree(m, tmp);
     const builtRoot = join(tmp, m.harnessDir);
     // Built → committed: MISSING / DIFFERS.
     const builtFiles = new Set<string>();

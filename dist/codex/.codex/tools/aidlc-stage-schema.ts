@@ -12,6 +12,16 @@ import { isPlainObject } from "./aidlc-lib.ts";
 
 export interface StageFrontmatter {
   slug: string;
+  // number — the authored display order, `<phase-prefix>.<index>` (e.g. "2.7").
+  // Optional in the schema (validated for shape when present) but REQUIRED at
+  // compile: compileStageGraph throws if a shipped stage omits it. Authoring it
+  // here — rather than seeding it from the committed stage-graph.json — is what
+  // makes compile deterministic from core/ sources alone and lets an extension
+  // claim its own number range without renumbering core stages.
+  number?: string;
+  // name — the authored human-readable display name. Same optionality contract
+  // as `number`: shape-checked when present, presence enforced at compile.
+  name?: string;
   phase: "initialization" | "ideation" | "inception" | "construction" | "operation";
   execution: "ALWAYS" | "CONDITIONAL";
   condition: string;
@@ -107,7 +117,12 @@ const REQUIRED_FIELDS = [
   "outputs",
 ] as const;
 
-const OPTIONAL_FIELDS = ["for_each", "sensors", "scopes", "reviewer", "reviewer_max_iterations"] as const;
+// number + name are authored but OPTIONAL at the schema layer (validated for
+// shape when present); compileStageGraph enforces their PRESENCE on shipped
+// stages. Keeping them optional here preserves the validator's minimal-fixture
+// contract (a unit fixture need not carry display metadata to be structurally
+// valid) while compile still fails loud for a real stage that forgets them.
+const OPTIONAL_FIELDS = ["number", "name", "for_each", "sensors", "scopes", "reviewer", "reviewer_max_iterations"] as const;
 
 const KNOWN_FIELDS = new Set<string>([...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]);
 
@@ -116,6 +131,12 @@ const KNOWN_FIELDS = new Set<string>([...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]);
 // Filename-stem check is the parser's responsibility (where the filename
 // is known); here we only validate the shape.
 const SLUG_RE = /^[a-z][a-z0-9-]*$/;
+
+// Stage display number: `<phase-prefix>.<index>`, both non-negative integers
+// (e.g. "0.1", "2.7", "4.50"). numericStageOrder (aidlc-graph.ts) parses this
+// shape; an extension authors numbers in its claimed range. Shape only — the
+// phase-prefix/phase agreement is a separate compile-time cross-check.
+const NUMBER_RE = /^\d+\.\d+$/;
 
 // Lowercase-kebab artifact names — see docs/reference/16-artifact-vocabulary.md
 // for the naming rules and aidlc-graph.ts for the derived registry.
@@ -166,6 +187,13 @@ export function validateStageFrontmatter(
   // Rule 5-7: per-field type, enum, regex checks.
   checkString(o, "slug", errors);
   checkSlugPattern(o, "slug", SLUG_RE, "kebab-case", errors);
+
+  // number + name — authored display metadata. Optional at this layer (absent
+  // is structurally valid; compile enforces presence on shipped stages), but
+  // shape-checked when present. number must be `<int>.<int>`; name any string.
+  checkString(o, "number", errors);
+  checkSlugPattern(o, "number", NUMBER_RE, "<phase-prefix>.<index>", errors);
+  checkString(o, "name", errors);
 
   checkString(o, "phase", errors);
   checkEnum(o, "phase", VALID_PHASES, errors);

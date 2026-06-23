@@ -1,5 +1,7 @@
 ---
 slug: intent-capture
+number: 1.1
+name: Intent Capture & Framing
 phase: ideation
 execution: ALWAYS
 condition: First stage of every workflow — establishes the initiative's foundation

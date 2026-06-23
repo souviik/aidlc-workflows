@@ -1,5 +1,7 @@
 ---
 slug: reverse-engineering
+number: 2.1
+name: Reverse Engineering
 phase: inception
 execution: CONDITIONAL
 condition: Execute when project is brownfield. Always rerun for freshness. Skip for greenfield projects.

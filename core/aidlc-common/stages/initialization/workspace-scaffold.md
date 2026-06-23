@@ -1,5 +1,7 @@
 ---
 slug: workspace-scaffold
+number: 0.1
+name: Workspace Scaffold
 phase: initialization
 execution: ALWAYS
 condition: Scaffolds aidlc-docs/ directory tree — idempotent (skips existing dirs/files)

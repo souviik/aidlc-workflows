@@ -1,5 +1,7 @@
 ---
 slug: application-design
+number: 2.6
+name: Application Design
 phase: inception
 execution: CONDITIONAL
 condition: Execute when new components or services are needed, or service layer design is required. Skip when changes are modifications to existing components only.

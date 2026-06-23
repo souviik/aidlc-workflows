@@ -159,6 +159,8 @@ Test-only scope authored to drive the custom stage via --single.
     join(claude, "aidlc-common", "stages", "operation", `${CUSTOM_SLUG}.md`),
     `---
 slug: ${CUSTOM_SLUG}
+number: "4.8"
+name: Custom Smoke Stage
 phase: operation
 execution: ALWAYS
 condition: Always runs — a custom stage authored to prove the extensibility path
@@ -186,23 +188,10 @@ outputs: None — the stage body is illustrative
 `,
   );
 
-  // Pre-seed the new stage's {slug, number, name} row in the SANDBOX
-  // stage-graph.json. The compiler is a drift guard, not an inserter
-  // (aidlc-graph.ts:1083): it fills a pre-seeded row from the YAML but refuses
-  // to invent a row for an unknown slug. Use a 4.8 number (after the last
-  // operation stage 4.7) so it sorts last. The .sh did this via `bun -e`; in
-  // TS we edit the JSON directly (same effect on the sandbox file).
-  const graphJsonPath = join(claude, "tools", "data", "stage-graph.json");
-  const graph = JSON.parse(readFileSync(graphJsonPath, "utf-8")) as Array<
-    Record<string, unknown>
-  >;
-  graph.push({
-    slug: CUSTOM_SLUG,
-    number: "4.8",
-    name: "Custom Smoke Stage",
-    phase: "operation",
-  });
-  writeFileSync(graphJsonPath, JSON.stringify(graph, null, 2));
+  // number + name are authored in the frontmatter above (number "4.8" sorts
+  // after the last operation stage 4.7). Compile derives the whole stage-graph
+  // row from the YAML — no pre-seeded JSON row needed. This is the Layer-0
+  // extensibility win: drop a stage file in, recompile, done.
 
   return proj;
 }

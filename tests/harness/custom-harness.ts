@@ -205,7 +205,6 @@ export function seedCustomHarness(proj: string): void {
   seedCustomKnowledge(claude);
   seedScopeFile(claude);
   seedScopeRouting(claude);
-  seedStageGraphRows(claude);
   seedStageFiles(claude);
   seedSensorManifest(claude);
   seedProjectRule(claude);
@@ -340,60 +339,6 @@ function ensureStageListsCustomScope(stageFile: string): void {
   writeFileSync(stageFile, updated);
 }
 
-/** Pre-seed the {slug, number, name} stage-graph rows the compiler needs to
- *  bootstrap new stages (aidlc-graph.ts:944-952). The rest of each node is
- *  recomputed from the stage YAML at compile; the rules_in_context /
- *  sensors_applicable arrays are filled by the compile resolvers. */
-function seedStageGraphRows(claude: string): void {
-  const p = join(claude, "tools", "data", "stage-graph.json");
-  const graph = JSON.parse(readFileSync(p, "utf8")) as Array<{ slug: string }>;
-  const rows: Array<Record<string, unknown>> = [
-    {
-      slug: SNAPSHOT_STAGE_SLUG,
-      number: SNAPSHOT_STAGE_NUMBER,
-      name: SNAPSHOT_STAGE_NAME,
-      phase: SNAPSHOT_STAGE_PHASE,
-      execution: "ALWAYS",
-      condition: "Always executes (custom data-migration stage)",
-      lead_agent: CUSTOM_AGENT_SLUG,
-      support_agents: [],
-      mode: "inline",
-      produces: [SNAPSHOT_ARTIFACT],
-      consumes: [],
-      requires_stage: ["state-init"],
-      sensors: [CUSTOM_SENSOR_ID],
-      inputs: "none",
-      outputs: SNAPSHOT_OUTPUT_REL,
-      rules_in_context: [],
-      sensors_applicable: [],
-    },
-    {
-      slug: PLAN_STAGE_SLUG,
-      number: PLAN_STAGE_NUMBER,
-      name: PLAN_STAGE_NAME,
-      phase: PLAN_STAGE_PHASE,
-      execution: "ALWAYS",
-      condition: "Always executes (custom data-migration stage)",
-      lead_agent: CUSTOM_AGENT_SLUG,
-      support_agents: [],
-      mode: "inline",
-      produces: [PLAN_ARTIFACT],
-      consumes: [{ artifact: SNAPSHOT_ARTIFACT, required: true }],
-      requires_stage: [SNAPSHOT_STAGE_SLUG],
-      sensors: [CUSTOM_SENSOR_ID],
-      inputs: SNAPSHOT_OUTPUT_REL,
-      outputs: PLAN_OUTPUT_REL,
-      rules_in_context: [],
-      sensors_applicable: [],
-    },
-  ];
-  for (const row of rows) {
-    if (graph.some((s) => s.slug === row.slug)) continue; // idempotent
-    graph.push(row as unknown as { slug: string });
-  }
-  writeFileSync(p, `${JSON.stringify(graph, null, 2)}\n`);
-}
-
 /** Write both custom stage files. Each frontmatter carries every REQUIRED field
  *  (aidlc-stage-schema.ts:75-88), declares the artefact it PRODUCES, joins the
  *  graph via requires_stage, and imports the custom sensor. The `## Steps` body
@@ -406,6 +351,8 @@ function seedStageFiles(claude: string): void {
   mkdirSync(snapshotDir, { recursive: true });
   const snapshotBody = `---
 slug: ${SNAPSHOT_STAGE_SLUG}
+number: ${SNAPSHOT_STAGE_NUMBER}
+name: ${SNAPSHOT_STAGE_NAME}
 phase: ${SNAPSHOT_STAGE_PHASE}
 execution: ALWAYS
 condition: Always executes (custom data-migration stage seeded by the Phase-5 harness-engineer fixture)
@@ -476,6 +423,8 @@ artefact write in Step 1 (its \`matches:\` glob covers the aidlc-docs tree).
   mkdirSync(planDir, { recursive: true });
   const planBody = `---
 slug: ${PLAN_STAGE_SLUG}
+number: ${PLAN_STAGE_NUMBER}
+name: ${PLAN_STAGE_NAME}
 phase: ${PLAN_STAGE_PHASE}
 execution: ALWAYS
 condition: Always executes (custom data-migration stage seeded by the Phase-5 harness-engineer fixture)

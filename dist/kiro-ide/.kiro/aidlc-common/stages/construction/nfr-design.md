@@ -1,5 +1,7 @@
 ---
 slug: nfr-design
+number: 3.3
+name: NFR Design
 phase: construction
 execution: CONDITIONAL
 condition: NFR Requirements was executed and NFR patterns need design. Skip if NFR Requirements was skipped.

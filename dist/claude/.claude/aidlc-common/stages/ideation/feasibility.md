@@ -1,5 +1,7 @@
 ---
 slug: feasibility
+number: 1.3
+name: Feasibility & Constraints
 phase: ideation
 execution: CONDITIONAL
 condition: Execute when there are integration constraints, regulatory requirements, or significant technical uncertainty. Skip for trivial changes with no technical risk.

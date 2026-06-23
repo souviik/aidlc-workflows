@@ -47,6 +47,8 @@ copies this table verbatim.
 | Field | Type | Required | Enum / Constraint |
 |-------|------|----------|--------------------|
 | `slug` | string | yes | kebab-case; must match filename stem |
+| `number` | string | yes | authored display order, `<phase-prefix>.<index>` (e.g. `2.7`). Phase prefix: `initialization=0`, `ideation=1`, `inception=2`, `construction=3`, `operation=4`. Both halves non-negative integers; `numericStageOrder` sorts on them. Authoring it (rather than deriving from topo order) keeps numbers stable when an extension inserts stages — an extension claims its own range and core stages never renumber. Optional in `stage-schema.ts` (shape-checked when present) but **required at compile** — `aidlc-graph compile` fails if a stage omits it |
+| `name` | string | yes | authored human-readable display name (e.g. `Requirements Analysis`). Same optionality contract as `number`: shape-checked by the schema, presence enforced at compile. Surfaces in the SKILL.md Stage Graph table, doctor/status output, and jump directives |
 | `phase` | string | yes | `initialization` \| `ideation` \| `inception` \| `construction` \| `operation` (lowercase) |
 | `execution` | string | yes | `ALWAYS` \| `CONDITIONAL` |
 | `condition` | string | yes | free-form; describe always-on rationale for `ALWAYS`, branching condition for `CONDITIONAL` |
@@ -59,7 +61,7 @@ copies this table verbatim.
 | `consumes[].artifact` | string | yes per entry | lowercase-kebab |
 | `consumes[].required` | boolean | yes per entry | Scoped to the active plan. `true` means "if the producing stage runs, this consume must be satisfied" — not a global assertion that the artifact always exists. Scopes that skip the producer (e.g., `bugfix` skipping `units-generation`) make the consume moot; the stage body handles graceful degradation. The reserved `when:` primitive will eventually let authors express richer predicates |
 | `consumes[].conditional_on` | string | optional | `brownfield` \| `greenfield`. Omit for unconditional consumes — no `always` value |
-| `requires_stage` | string[] | yes | empty allowed; each entry a known stage slug. Two roles: (1) semantic data dependency; (2) presentation-order edge for stages with no semantic link but a fixed display order. Primary input to computed `display_order` |
+| `requires_stage` | string[] | yes | empty allowed; each entry a known stage slug. Two roles: (1) semantic data dependency; (2) presentation-order edge for stages with no semantic link but a fixed display order. Compile asserts every edge points from a higher-numbered stage to a lower-numbered one (the authored `number` is the order of record) |
 | `scopes` | string[] | optional | each entry a scope name with a matching `.codex/scopes/aidlc-<name>.md` file. Naming a scope marks this stage EXECUTE under that scope; absence marks it SKIP. The per-stage transpose of the scope membership matrix — `aidlc-graph compile` reads every stage's `scopes:` and emits the compiled EXECUTE/SKIP grid (`tools/data/scope-grid.json`). The 3 initialization stages name all scopes (always EXECUTE). Absent and `[]` are treated identically |
 | `inputs` | string | yes | human prose (preserves today's `**Inputs**:` line) |
 | `outputs` | string | yes | human prose (preserves today's `**Outputs**:` line) |
@@ -68,13 +70,14 @@ copies this table verbatim.
 
 ## Computed fields (NOT authored)
 
-Two fields appear in `stage-graph.json` but are derived by the compile step,
-not authored in YAML.
-
-| Field | Derivation |
-|-------|------------|
-| `display_order` | `<phase-prefix>.<sequence>`. Phase prefix: `initialization=0`, `ideation=1`, `inception=2`, `construction=3`, `operation=4`. Sequence: topological sort of `requires_stage` edges filtered to this phase, slug-alphabetical tiebreak for parallel stages |
-| `name` | Title-case of the slug (hyphens → spaces), or the H1 heading of the stage file |
+Every field in `stage-graph.json` is now either authored in the stage YAML
+(including `number` and `name`) or derived from other authored config —
+`rules_in_context` (resolved from the rule layer chain by `phase`) and
+`sensors_applicable` (resolved from each stage's `sensors:` list against the
+sensor registry). Compile reads no value from the prior `stage-graph.json`: it
+is deterministic from `core/` sources alone, which is what lets a new stage (or
+an extension's stages) compile by dropping in a YAML file with an authored
+`number` + `name` and recompiling — no pre-seeding a generated file.
 
 ---
 
@@ -87,6 +90,8 @@ copy-paste template when authoring a new stage; the schema in
 ```yaml
 ---
 slug: scope-definition
+number: 1.4
+name: Scope Definition
 phase: ideation
 execution: ALWAYS
 condition: Always executes — defines the scope boundary and prioritized backlog
@@ -116,8 +121,8 @@ outputs: aidlc-docs/ideation/scope-definition/scope-document.md, aidlc-docs/idea
 ---
 ```
 
-Note: no `display_order` (computed), no `for_each` (stage runs once per
-workflow — field omitted).
+Note: `number` + `name` are authored (above), and `for_each` is omitted (the
+stage runs once per workflow).
 
 ---
 

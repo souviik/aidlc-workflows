@@ -160,8 +160,8 @@ function isOutputReferenced(filename: string, bodyText: string): boolean {
 // --- Header field parsing ---
 
 // Reads YAML frontmatter via parseStageFrontmatter. Field names
-// are title-case in callers (e.g. "Display Order", "Lead Agent") and get
-// normalised to the YAML key ("display_order", "lead_agent") here.
+// are title-case in callers (e.g. "Lead Agent", "Outputs") and get
+// normalised to the YAML key ("lead_agent", "outputs") here.
 // Returns null if file has no frontmatter or field is absent / non-string.
 function getHeaderField(content: string, field: string): string | null {
   try {

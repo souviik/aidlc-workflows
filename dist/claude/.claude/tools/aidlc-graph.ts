@@ -19,12 +19,12 @@
 //     (doctor consumes them) and for future scheduling; they do not
 //     gate runtime iteration today.
 //
-// Compile is the YAML -> JSON transform. It bootstraps number + name
-// from today's stage-graph.json so YAML stays the authored source of
-// truth for everything else while computed fields stay computed. Adding
-// a new stage requires pre-seeding {slug, number, name} in
-// stage-graph.json before the first compile; renumbering existing
-// stages similarly edits those rows then recompiles.
+// Compile is the YAML -> JSON transform. number + name are AUTHORED in
+// each stage's frontmatter (alongside every other field), so compile is
+// deterministic from core/ sources alone — no seed read from the prior
+// stage-graph.json. Adding a new stage is just dropping its YAML with an
+// authored number ("<phase-prefix>.<index>") + name and recompiling;
+// renumbering edits the frontmatter then recompiles.
 //
 // See docs/reference/16-artifact-vocabulary.md for artifact naming.
 
@@ -1013,26 +1013,19 @@ export function numericStageOrder(a: string, b: string): number {
   return aI - bI;
 }
 
-/** Regenerate stage-graph.json from the 31 YAML stage files.
- *  Bootstraps number + name from the existing JSON (the "computed
- *  not authored" contract — see stage-definition.md). Asserts the
- *  edge-local invariant: every requires_stage edge points from a
- *  higher-numbered stage to a lower-numbered one. Also transposes each
- *  stage's `scopes:` into the compiled scope-grid.json (gridJson) — both
- *  artifacts derive from the same in-memory stages, so a single compile
- *  keeps stage-graph.json and scope-grid.json in lockstep. */
+/** Regenerate stage-graph.json from the YAML stage files.
+ *  number + name are AUTHORED in each stage's frontmatter (not seeded
+ *  from the existing JSON) — compile is deterministic from core/ sources
+ *  alone. Asserts the edge-local invariant: every requires_stage edge
+ *  points from a higher-numbered stage to a lower-numbered one. Also
+ *  transposes each stage's `scopes:` into the compiled scope-grid.json
+ *  (gridJson) — both artifacts derive from the same in-memory stages, so
+ *  a single compile keeps stage-graph.json and scope-grid.json in lockstep. */
 export function compileStageGraph(): {
   json: string;
   gridJson: string;
   stages: GraphStage[];
 } {
-  // Harvest number + name mappings from existing JSON. Adding a new
-  // stage requires pre-seeding a {slug, number, name} row before first
-  // compile; renumbering existing stages is an explicit JSON edit.
-  const existing = loadStageGraph();
-  const numberBySlug = new Map(existing.map((s) => [s.slug, s.number]));
-  const nameBySlug = new Map(existing.map((s) => [s.slug, s.name]));
-
   const stages: GraphStage[] = [];
   // Track slug-to-first-file so duplicate-slug errors name both files.
   const slugToFile = new Map<string, string>();
@@ -1089,13 +1082,17 @@ export function compileStageGraph(): {
       }
       slugToFile.set(slug, filePath);
 
-      const number = numberBySlug.get(slug);
-      const name = nameBySlug.get(slug);
+      // number + name are authored frontmatter (validated for shape by the
+      // schema). Presence is REQUIRED for a shipped stage but OPTIONAL in the
+      // schema (so minimal validator fixtures stay valid) — enforce it here so
+      // a real stage that forgets either field fails the compile loudly.
+      const number = validation.data.number;
+      const name = validation.data.name;
       if (!number || !name) {
+        const missing = [!number && "number", !name && "name"].filter(Boolean).join(" + ");
         throw new Error(
-          `Stage "${slug}" (${filePath}) not found in stage-graph.json. ` +
-            `Pre-seed new rows and edit renumbered rows in stage-graph.json ` +
-            `before compile.`
+          `Stage "${slug}" (${filePath}) is missing required authored field(s): ${missing}. ` +
+            `Every stage must declare number ("<phase-prefix>.<index>") and name in its frontmatter.`
         );
       }
 

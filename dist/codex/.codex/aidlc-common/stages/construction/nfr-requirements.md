@@ -1,5 +1,7 @@
 ---
 slug: nfr-requirements
+number: 3.2
+name: NFR Requirements
 phase: construction
 execution: CONDITIONAL
 condition: Performance requirements, security considerations, scalability concerns, or tech stack selection needed. Skip if no NFR requirements and tech stack already determined.

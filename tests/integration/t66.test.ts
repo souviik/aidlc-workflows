@@ -784,14 +784,15 @@ describe("t66 edge-local invariant (in-process)", () => {
 });
 
 // =============================================================================
-// Compile bootstrap error message (.sh:730-735, 1 assertion)
-// GREP-THE-SOURCE: readFileSync(GRAPH_TS) + .includes('Pre-seed new rows').
+// Compile authored-field error message (1 assertion)
+// GREP-THE-SOURCE: number + name are authored frontmatter (no seed). A stage
+// that omits them fails compile with "missing required authored field(s)".
 // =============================================================================
 
-describe("t66 compile bootstrap error message (source grep)", () => {
-  test("compile bootstrap error message mentions 'Pre-seed new rows'", () => {
+describe("t66 compile authored-field error message (source grep)", () => {
+  test("compile error message mentions 'missing required authored field(s)'", () => {
     const src = readFileSync(GRAPH_TS, "utf8");
-    expect(src.includes("Pre-seed new rows")).toBe(true);
+    expect(src.includes("missing required authored field(s)")).toBe(true);
   });
 });
 

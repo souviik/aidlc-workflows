@@ -1453,6 +1453,8 @@ export function emitStageFrontmatter(obj: Record<string, unknown>): string {
 
   const FIELD_ORDER = [
     "slug",
+    "number",
+    "name",
     "phase",
     "execution",
     "condition",

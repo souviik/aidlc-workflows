@@ -88,14 +88,15 @@ Encodes dependency edges. Two roles:
 
 1. **Semantic data dependency.** "I consume artifact X, which stage Y
    produces" → add `Y` to `requires_stage`.
-2. **Presentation-order edge.** Two stages in the same phase with no
-   semantic dependency but a fixed ordering (e.g., `market-research` before
-   `feasibility` in Ideation). Add the weak edge so the computed
-   `display_order` lands stably.
+2. **Ordering invariant.** Display order is the authored `number` field, not
+   a derived topological sort. Compile asserts every `requires_stage` edge
+   points from a higher-numbered stage to a lower-numbered one, so an edge to
+   a stage you number after yourself fails the build — keep `number` and the
+   dependency direction consistent.
 
-The compile step's slug-alphabetical tiebreak is a safety net. For stages
-that must land in a specific order, author the edge explicitly rather than
-relying on alphabetical accident.
+Authoring `number` (rather than deriving it) is what keeps ordering stable
+when an extension inserts stages: the extension claims its own number range
+and core stages never renumber.
 
 ### `for_each`
 

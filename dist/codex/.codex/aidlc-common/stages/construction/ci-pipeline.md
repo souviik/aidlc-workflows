@@ -1,5 +1,7 @@
 ---
 slug: ci-pipeline
+number: 3.7
+name: CI Pipeline
 phase: construction
 execution: CONDITIONAL
 condition: Execute when CI pipeline needs creation or significant modification. Skip if CI already exists and is adequate.

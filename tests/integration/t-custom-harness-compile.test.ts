@@ -354,20 +354,22 @@ describe("t-custom-harness-compile (deterministic — harness-engineer edits res
     }
   });
 
-  // E4 — a stage .md exists but has no {slug,number,name} row pre-seeded in
-  // stage-graph.json (the pre-seed contract for adding a new stage).
+  // E4 — a stage .md that omits the authored number/name frontmatter fails
+  // compile. number + name are authored (not seeded from stage-graph.json), so
+  // the failure mode for a half-authored stage is "missing required authored
+  // field(s)", not the old pre-seed-row contract.
   // Guard: compileStageGraph in aidlc-graph.ts.
-  test("E4: a stage .md with no stage-graph.json row fails compile (pre-seed contract)", () => {
+  test("E4: a stage .md missing authored number/name fails compile", () => {
     const proj = setupIntegrationProject({ customHarness: true });
     try {
-      // Write a new stage file WITHOUT pre-seeding its graph row.
+      // Write a new stage file WITHOUT authoring number + name.
       writeFileSync(
-        stagePath(proj, SNAPSHOT_STAGE_PHASE, "unseeded-stage"),
+        stagePath(proj, SNAPSHOT_STAGE_PHASE, "unnumbered-stage"),
         `---
-slug: unseeded-stage
+slug: unnumbered-stage
 phase: ${SNAPSHOT_STAGE_PHASE}
 execution: ALWAYS
-condition: never seeded into stage-graph.json
+condition: authored without a number or name
 lead_agent: orchestrator
 support_agents: []
 mode: inline
@@ -377,13 +379,13 @@ requires_stage: []
 inputs: none
 outputs: none
 ---
-# Unseeded
+# Unnumbered
 `,
       );
       const r = graph(proj, ["compile"]);
       expect(r.status).not.toBe(0);
-      expect(r.stderr).toContain("not found in stage-graph.json");
-      expect(r.stderr).toContain("unseeded-stage");
+      expect(r.stderr).toContain("missing required authored field(s)");
+      expect(r.stderr).toContain("unnumbered-stage");
     } finally {
       cleanupTestProject(proj);
     }

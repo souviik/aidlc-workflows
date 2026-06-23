@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.3] - 2026-06-23
+
+Makes stage `number` and `name` **authored frontmatter** instead of values seeded from the committed `stage-graph.json`. The compile step (`aidlc-graph compile`) now derives the entire stage graph from `core/` sources alone — it no longer reads the prior JSON for a number/name seed, and the packager no longer stashes/restores that seed across a build. This removes the long-standing requirement to hand-edit a generated file when adding a stage: drop a stage `.md` with an authored `number` + `name` and recompile. Compiled output is byte-identical to 2.0.2 — every shipped stage was migrated to carry the values it already had. Re-copy your `dist/<harness>/` to pick up the regenerated tools. Foundation for the extension mechanism (see `docs/reference/18-extension-mechanism.md`).
+
+* **Authoring impact (action required if you hand-author stages):** every stage `.md` must now declare `number` (`<phase-prefix>.<index>`, e.g. `2.7`) and `name` in its frontmatter. A stage that omits either FAILS `aidlc-graph compile` with `missing required authored field(s)`, where it previously inherited the value from the committed `stage-graph.json` seed. The two fields are validated for shape by the schema (`number` must match `^\d+\.\d+$`) and for presence at compile.
+* **No more pre-seeding generated files.** The `compile` error `"not found in stage-graph.json … Pre-seed new rows"` is gone, as is the packager's seed stash/restore. Adding a stage is now: author the YAML, recompile.
+* No new commands or flags; no runtime behaviour change. The stage graph, scope grid, and all generated artifacts are byte-for-byte identical to 2.0.2.
+
 ## [2.0.2] - 2026-06-18
 
 Validates the stage `reviewer:` / `reviewer_max_iterations` frontmatter fields, which were carried through schema → graph → directive by the 2.0.0 reviewer mechanism but never checked. A malformed cap, a non-positive-integer cap, a cap declared with no reviewer, or a `reviewer:` naming an agent with no `.claude/agents/*.md` file all passed validation before and surfaced only as a runtime failure or a silently-disabled review loop; they now fail validation/compile loudly and deterministically. This is a behaviour change at authoring time only — the reviewer's runtime behaviour is unchanged. Re-copy your `dist/<harness>/` to pick up the regenerated tools. Refs #389.
