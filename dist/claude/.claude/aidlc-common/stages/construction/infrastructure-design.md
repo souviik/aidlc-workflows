@@ -12,24 +12,23 @@ reviewer: aidlc-architecture-reviewer-agent
 reviewer_max_iterations: 2
 for_each: unit-of-work
 produces:
-  - deployment-architecture
-  - infrastructure-services
-  - monitoring-design
-  - cicd-pipeline
-  - shared-infrastructure
+  - infrastructure-specification
 consumes:
   - artifact: nfr-specification
     required: true
   - artifact: components
     required: true
   - artifact: functional-spec
-    required: true
+    required: false
+  - artifact: contracts
+    required: false
 requires_stage:
   - units-generation
   - nfr-design
 sensors:
   - required-sections
   - upstream-coverage
+  - blueprint-shape
   - linter
   - type-check
 scopes:
@@ -38,8 +37,8 @@ scopes:
   - mvp
   - infra
   - workshop
-inputs: NFR design artifacts, application design, functional design
-outputs: "aidlc-docs/construction/{unit-name}/infrastructure-design/ (deployment-architecture.md, infrastructure-services.md, monitoring-design.md, cicd-pipeline.md, CONDITIONAL: shared-infrastructure.md)"
+inputs: nfr-specification (nfr-design), components blueprint (domain-design), functional-spec (functional-design, optional), contracts (contract-design, optional)
+outputs: "aidlc-docs/construction/{unit-name}/infrastructure-design/ (infrastructure-specification.md)"
 ---
 
 # Infrastructure Design
@@ -71,10 +70,10 @@ Load aidlc-aws-platform-agent (lead) persona from `agents/aidlc-aws-platform-age
 ### Step 2: Read Prior Artifacts
 
 Read all prior design artifacts for context:
-- NFR design from `aidlc-docs/construction/{unit-name}/nfr-design/` (if exists)
-- Functional design from `aidlc-docs/construction/{unit-name}/functional-design/` (if exists)
-- Application design from `aidlc-docs/inception/application-design/`
-- NFR specification from `aidlc-docs/construction/{unit-name}/nfr-design/` (if exists)
+- `nfr-specification` from `aidlc-docs/construction/{unit-name}/nfr-design/nfr-specification.md`
+- `functional-spec` from `aidlc-docs/construction/{unit-name}/functional-design/functional-spec.md` (if exists)
+- The `components` blueprint from `aidlc-docs/inception/domain-design/components.md`
+- `contracts` from `aidlc-docs/inception/contract-design/` (if exists, for this unit's boundaries)
 
 ### Step 3: Generate Infrastructure Questions
 
@@ -106,15 +105,19 @@ Design infrastructure across four areas:
 - **Monitoring & Observability**: Metrics collection, log aggregation, distributed tracing, alerting rules, dashboards, SLI/SLO tracking
 - **CI/CD Pipeline**: Build stages, test stages, deployment stages, environment promotion, rollback strategy, feature flags, artifact management
 
-### Step 6: Generate Artifacts
+### Step 6: Generate Artifact
 
-Generate the following in `aidlc-docs/construction/{unit-name}/infrastructure-design/`:
+Generate a single consolidated specification at `aidlc-docs/construction/{unit-name}/infrastructure-design/infrastructure-specification.md`. It folds what were previously five separate artifacts (deployment architecture, infrastructure services, monitoring design, CI/CD pipeline, shared infrastructure) into one spec, organised by section. Each infrastructure element **references the `cmp-NNN` component IDs** from the upstream `components` blueprint it provisions or supports.
 
-- **deployment-architecture.md**: Compute resources, networking, storage, environment definitions, infrastructure-as-code approach, resource sizing
-- **infrastructure-services.md**: Database design, caching layer, messaging infrastructure, external service integrations, service discovery
-- **monitoring-design.md**: Metrics and KPIs, log strategy, tracing configuration, alert definitions, dashboard specifications, incident response
-- **cicd-pipeline.md**: Pipeline stages, build configuration, test automation integration, deployment strategy (blue-green, canary, rolling), rollback procedures, secrets management in CI/CD
-- **shared-infrastructure.md** (CONDITIONAL — produce when multiple units share infrastructure resources): Shared databases, shared caches, shared message queues, shared networking, cross-unit service discovery, resource ownership and access boundaries
+`infrastructure-specification.md` contains:
+
+- **Deployment Architecture**: compute model (containers, serverless, VMs), networking topology, storage strategy, environment layout (dev/staging/prod), infrastructure-as-code approach, resource sizing — each tied to the `cmp-NNN` it hosts.
+- **Infrastructure Services**: databases (type, sizing, replication), caches (strategy, eviction), message queues, search services, CDN, DNS, load balancers, service discovery — mapped to the `cmp-NNN` they back.
+- **Monitoring & Observability**: metrics and KPIs, log strategy, tracing configuration, alert definitions, dashboard specifications, SLI/SLO tracking.
+- **CI/CD Pipeline**: pipeline stages, build configuration, test automation integration, deployment strategy (blue-green, canary, rolling), rollback procedures, secrets management in CI/CD.
+- **Shared Infrastructure** (CONDITIONAL — include when multiple units share infrastructure resources): shared databases, caches, message queues, networking, cross-unit service discovery, resource ownership and access boundaries.
+
+The spec carries a fenced `yaml` block where every provisioned element references the `cmp-NNN` component(s) it supports. The `blueprint-shape` sensor validates that every `cmp-NNN` referenced resolves to a declared component in the upstream blueprint.
 
 ### Step 7: Update State
 
@@ -138,12 +141,13 @@ Approval gate: strictly 2-option (Approve / Request Changes).
 
 ## Sensors
 
-This stage's outputs are markdown design artefacts under `aidlc-docs/construction/infrastructure-design/`. Some sections include code samples that the code-shape sensors can also flag.
+This stage's output is a single markdown design artefact (`infrastructure-specification.md`) under `aidlc-docs/construction/{unit-name}/infrastructure-design/`. It carries a fenced `yaml` block mapping infrastructure elements to the `cmp-NNN` components they support; some sections include code samples that the code-shape sensors can also flag.
 
 The imported sensors check those outputs:
 
 - **`required-sections`** verifies the output contains the registry default (≥2 H2 headings).
-- **`upstream-coverage`** verifies the output prose references each artefact declared in this stage's `consumes:` frontmatter (this stage consumes `nfr-specification`, `components`, `functional-spec`).
+- **`upstream-coverage`** verifies the output prose references each artefact declared in this stage's `consumes:` frontmatter (this stage consumes `nfr-specification`, `components`, `functional-spec`, `contracts`).
+- **`blueprint-shape`** verifies that every `cmp-NNN` the spec references resolves to a component declared in the upstream `components` blueprint. An orphan reference emits `SENSOR_FAILED`.
 - **`linter`** runs against any TypeScript/JavaScript snippets the design includes (matches `**/*.{ts,js}`).
 - **`type-check`** runs against any TypeScript/TSX snippets the design includes (matches `**/*.{ts,tsx}`).
 

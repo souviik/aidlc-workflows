@@ -1702,11 +1702,7 @@
     "mode": "inline",
     "for_each": "unit-of-work",
     "produces": [
-      "deployment-architecture",
-      "infrastructure-services",
-      "monitoring-design",
-      "cicd-pipeline",
-      "shared-infrastructure"
+      "infrastructure-specification"
     ],
     "consumes": [
       {
@@ -1719,7 +1715,11 @@
       },
       {
         "artifact": "functional-spec",
-        "required": true
+        "required": false
+      },
+      {
+        "artifact": "contracts",
+        "required": false
       }
     ],
     "requires_stage": [
@@ -1729,6 +1729,7 @@
     "sensors": [
       "required-sections",
       "upstream-coverage",
+      "blueprint-shape",
       "linter",
       "type-check"
     ],
@@ -1741,8 +1742,8 @@
     ],
     "reviewer": "aidlc-architecture-reviewer-agent",
     "reviewer_max_iterations": 2,
-    "inputs": "NFR design artifacts, application design, functional design",
-    "outputs": "aidlc-docs/construction/{unit-name}/infrastructure-design/ (deployment-architecture.md, infrastructure-services.md, monitoring-design.md, cicd-pipeline.md, CONDITIONAL: shared-infrastructure.md)",
+    "inputs": "nfr-specification (nfr-design), components blueprint (domain-design), functional-spec (functional-design, optional), contracts (contract-design, optional)",
+    "outputs": "aidlc-docs/construction/{unit-name}/infrastructure-design/ (infrastructure-specification.md)",
     "rules_in_context": [
       {
         "path": ".claude/rules/aidlc-org.md",
@@ -1770,6 +1771,11 @@
       {
         "id": "upstream-coverage",
         "path": ".claude/sensors/aidlc-upstream-coverage.md",
+        "matches": "**/aidlc-docs/**"
+      },
+      {
+        "id": "blueprint-shape",
+        "path": ".claude/sensors/aidlc-blueprint-shape.md",
         "matches": "**/aidlc-docs/**"
       },
       {
@@ -1821,7 +1827,7 @@
         "required": false
       },
       {
-        "artifact": "deployment-architecture",
+        "artifact": "infrastructure-specification",
         "required": false
       },
       {
@@ -2089,11 +2095,7 @@
         "required": true
       },
       {
-        "artifact": "deployment-architecture",
-        "required": true
-      },
-      {
-        "artifact": "cicd-pipeline",
+        "artifact": "infrastructure-specification",
         "required": true
       }
     ],
@@ -2165,11 +2167,7 @@
     ],
     "consumes": [
       {
-        "artifact": "deployment-architecture",
-        "required": true
-      },
-      {
-        "artifact": "infrastructure-services",
+        "artifact": "infrastructure-specification",
         "required": true
       },
       {
@@ -2333,11 +2331,7 @@
         "required": true
       },
       {
-        "artifact": "monitoring-design",
-        "required": true
-      },
-      {
-        "artifact": "infrastructure-services",
+        "artifact": "infrastructure-specification",
         "required": true
       }
     ],
@@ -2419,7 +2413,7 @@
         "required": true
       },
       {
-        "artifact": "deployment-architecture",
+        "artifact": "infrastructure-specification",
         "required": true
       }
     ],
