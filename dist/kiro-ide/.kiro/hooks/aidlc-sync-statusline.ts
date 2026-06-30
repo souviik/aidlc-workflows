@@ -14,6 +14,7 @@ import { join } from "node:path";
 import {
   type ClaudeCodeHookInput,
   getField,
+  hookDebug,
   hooksHealthDir,
   isClaudeCodeHookInput,
   isoTimestamp,
@@ -26,6 +27,7 @@ import {
 } from "../tools/aidlc-lib.ts";
 
 const projectDir = resolveProjectDirFromHook(import.meta.url);
+hookDebug(projectDir, "sync-statusline", "invoked");
 
 // Read JSON from stdin. Exit cleanly if stdin is a TTY — no Claude Code JSON
 // coming in this scenario (test / direct-run / debug-mode inherited stdin).
@@ -54,8 +56,9 @@ if (source === "ide-audit-sync") {
   // the hook fires on every tool call, so a no-op on no-change is the norm).
   const audit = readAllAuditShards(projectDir);
   const auditSlug = latestStartedStageSlug(audit);
-  if (!auditSlug) process.exit(0);
   const current = getField(readStateFile(projectDir), "Current Stage");
+  hookDebug(projectDir, "sync-statusline", "ide-audit-sync", { auditSlug, current });
+  if (!auditSlug) process.exit(0);
   if (current === auditSlug) process.exit(0);
   slug = auditSlug;
 } else {
@@ -76,6 +79,7 @@ writeFileSync(join(healthDir, "sync-statusline.last"), isoTimestamp(), "utf-8");
 
 // Update state file via set-status (call the utility tool directly)
 const toolPath = join(projectDir, harnessDir(), "tools", "aidlc-utility.ts");
+hookDebug(projectDir, "sync-statusline", "set-status", { slug });
 Bun.spawnSync(["bun", toolPath, "set-status", "--stage", slug, "--project-dir", projectDir], {
   stdout: "ignore",
   stderr: "ignore",

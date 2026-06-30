@@ -3632,6 +3632,46 @@ export function recordHookDrop(
   }
 }
 
+// --- Hook debug log ---
+//
+// Append a structured debug line to `<health>/hook-debug.log` so a hook's
+// decision path can be inspected after a run WITHOUT re-deriving it by
+// hypothesis. OPT-IN ONLY: enabled when AIDLC_HOOK_DEBUG is set, off
+// everywhere otherwise. Off-by-default means zero log growth and zero write
+// cost on a normal run; turn it on deliberately when debugging.
+//   - On the CLI/Claude/Codex: `AIDLC_HOOK_DEBUG=1 <command>` or export it.
+//   - For Kiro IDE hooks (no per-command env): add `export AIDLC_HOOK_DEBUG=1`
+//     to `~/.zshenv` (the file non-interactive shells read — same place bun's
+//     PATH export goes), then reload. Every IDE hook subprocess then logs.
+// Never throws; logging must never break a hook's advisory exit-0 contract.
+export function hookDebugEnabled(): boolean {
+  return Boolean(process.env.AIDLC_HOOK_DEBUG);
+}
+
+export function hookDebug(
+  projectDir: string,
+  hookName: string,
+  message: string,
+  fields?: Record<string, unknown>,
+): void {
+  if (!hookDebugEnabled()) return;
+  try {
+    const healthDir = hooksHealthDir(projectDir);
+    mkdirSync(healthDir, { recursive: true });
+    const logFile = join(healthDir, "hook-debug.log");
+    const parts = [isoTimestamp(), hookName, message];
+    if (fields && Object.keys(fields).length > 0) {
+      const flat = Object.entries(fields)
+        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+        .join(" ");
+      parts.push(flat);
+    }
+    appendFileSync(logFile, `${parts.join("\t").replace(/\r?\n/g, " ")}\n`, "utf-8");
+  } catch {
+    // Debug-log failure is non-fatal — observability is best-effort.
+  }
+}
+
 // Recursion guard: if emitError is entered while emitting ERROR_LOGGED fails,
 // do not re-enter. The guard is process-local (one flag) — tools exit after
 // one error(), so nested error() calls inside a single process are bugs.

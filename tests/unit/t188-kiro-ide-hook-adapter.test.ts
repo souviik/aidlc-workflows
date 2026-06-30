@@ -17,6 +17,7 @@ import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -25,7 +26,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { hostname, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_RECORD_DIR,
@@ -132,13 +133,18 @@ function ctx(toolName: string, toolResult: string): string {
 }
 
 describe("t188 Kiro IDE hook adapter (USER_PROMPT env context)", () => {
-  test("1: audit-and-sensors extracts the path from a fs_write toolResult", () => {
+  test("1: audit-and-sensors resolves a RELATIVE toolResult path (real IDE shape) and logs CREATE", () => {
     const dir = scratchProject(true);
     try {
       const file = join(seededRecordDir(dir), "ideation", "intent-capture", "intent.md");
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, "# intent\n");
-      const r = runIde(dir, "audit-and-sensors", ctx("fs_write", `Created the ${file} file.`));
+      // Kiro IDE reports the path RELATIVE to the workspace root (the bug that
+      // made audit-logger's absolute-recordRoot gate reject every write). The
+      // adapter must resolve it against the project dir before forwarding.
+      const relPath = relative(dir, file);
+      expect(isAbsolute(relPath)).toBe(false); // premise: this is a relative path
+      const r = runIde(dir, "audit-and-sensors", ctx("fs_write", `Created the ${relPath} file.`));
       expect(r.code).toBe(0);
       const audit = readAudit(dir);
       expect(audit).toContain("ARTIFACT_CREATED");
@@ -227,6 +233,24 @@ describe("t188 Kiro IDE hook adapter (USER_PROMPT env context)", () => {
     }
   });
 
+  test("7b: runtime-compile actually compiles when the audit tail has a transition (no command needed)", () => {
+    const dir = scratchProject(true);
+    try {
+      // Seed a STAGE_STARTED transition in the tail. The IDE never surfaces the
+      // shell command, so the only way the graph compiles is the audit-tail
+      // path (command filter skipped via the ide-audit-sync marker).
+      appendStageStarted(dir, "intent-capture", "2026-06-30T10:00:00.000Z");
+      const graphPath = join(seededRecordDir(dir), "runtime-graph.json");
+      const r = runIde(dir, "runtime-compile", ctx("execute_bash", "Output:\nok\n\nExit Code: 0"));
+      expect(r.code).toBe(0);
+      // The compile wrote the runtime graph — proof the command filter was
+      // bypassed and the audit-tail gate fired.
+      expect(existsSync(graphPath)).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("8: session-start emits plain-text context, not the JSON wrapper", () => {
     const dir = scratchProject(true);
     try {
@@ -288,6 +312,46 @@ describe("t188 Kiro IDE hook adapter (USER_PROMPT env context)", () => {
       expect(readAudit(dir)).toContain("ARTIFACT_CREATED");
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("13: hook-debug.log is OPT-IN — absent without AIDLC_HOOK_DEBUG, present with it", () => {
+    const debugLogPath = (dir: string) =>
+      join(seededRecordDir(dir), ".aidlc-hooks-health", "hook-debug.log");
+    const fire = (dir: string, withFlag: boolean) => {
+      const file = join(seededRecordDir(dir), "ideation", "intent-capture", "intent.md");
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, "# intent\n");
+      const env: Record<string, string> = { ...process.env, CLAUDE_PROJECT_DIR: dir };
+      env.USER_PROMPT = ctx("fs_write", `Created the ${file} file.`);
+      if (withFlag) env.AIDLC_HOOK_DEBUG = "1";
+      else delete (env as Record<string, string | undefined>).AIDLC_HOOK_DEBUG;
+      spawnSync("bun", [join(dir, ".kiro", "hooks", "aidlc-kiro-adapter.ts"), "audit-and-sensors"], {
+        cwd: dir,
+        input: "",
+        encoding: "utf-8",
+        env,
+        timeout: 30_000,
+      });
+    };
+
+    // Off by default: USER_PROMPT alone must NOT enable debug logging.
+    const dirOff = scratchProject(true);
+    try {
+      fire(dirOff, false);
+      expect(existsSync(debugLogPath(dirOff))).toBe(false);
+    } finally {
+      rmSync(dirOff, { recursive: true, force: true });
+    }
+
+    // On with the flag: the decision trace is written.
+    const dirOn = scratchProject(true);
+    try {
+      fire(dirOn, true);
+      expect(existsSync(debugLogPath(dirOn))).toBe(true);
+      expect(readFileSync(debugLogPath(dirOn), "utf-8")).toContain("audit-logger");
+    } finally {
+      rmSync(dirOn, { recursive: true, force: true });
     }
   });
 });

@@ -36,11 +36,13 @@
 // where <target> ∈ session-start | audit-and-sensors | runtime-compile |
 //                  state-sync | log-subagent | stop | session-end
 
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hookDebug, resolveProjectDirFromHook } from "../tools/aidlc-lib.ts";
 
 const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
 const target = process.argv[2] ?? "";
+const dbgProjectDir = resolveProjectDirFromHook(import.meta.url);
 
 // The IDE hands hook context via the USER_PROMPT env var (NOT stdin). Shape:
 //   { toolName, toolArgs (always {}), toolResult, toolSuccess }
@@ -63,6 +65,12 @@ let ide: IdeHookContext = {};
     }
   }
 }
+hookDebug(dbgProjectDir, "kiro-adapter", "invoked", {
+  target,
+  hasUserPrompt: (process.env.USER_PROMPT ?? "").length > 0,
+  toolName: ide.toolName ?? "",
+  toolResult: (ide.toolResult ?? "").slice(0, 160),
+});
 
 // Extract the absolute path of the file a write tool just touched from the
 // IDE's toolResult prose. toolArgs is always empty, so this is the ONLY source.
@@ -108,8 +116,12 @@ function buildForward(): Forward {
       // The file path comes from the toolResult prose (toolArgs is empty).
       const canon = canonicalWriteTool(ide.toolName ?? "");
       if (canon === "") return null;
-      const filePath = extractWrittenPath(ide.toolResult ?? "");
-      if (!filePath) return null;
+      const rawPath = extractWrittenPath(ide.toolResult ?? "");
+      if (!rawPath) return null;
+      // Kiro IDE reports the path RELATIVE to the workspace root; the core hooks
+      // compare against an ABSOLUTE record root, so resolve it here. Absolute
+      // paths (defensive) pass through untouched.
+      const filePath = isAbsolute(rawPath) ? rawPath : resolve(dbgProjectDir, rawPath);
       return {
         hook: "__audit_and_sensors__", // handled specially below (two hooks)
         input: {
@@ -122,15 +134,16 @@ function buildForward(): Forward {
 
     case "runtime-compile": {
       // The IDE does not surface the shell command (toolResult is only
-      // stdout+exit), so the command filter cannot run here. Always forward:
-      // the core hook self-gates on the audit tail (idempotent + cheap), and
-      // its own MEMORY_EMPTY emit is not in the transition regex (no recursion).
+      // stdout+exit), so the command filter cannot run here. The
+      // ide-audit-sync marker tells the core hook to skip the command filter
+      // and gate purely on the audit tail (idempotent + cheap); its own
+      // MEMORY_EMPTY emit is not in the transition regex (no recursion).
       return {
         hook: "aidlc-runtime-compile.ts",
         input: {
           hook_event_name: "PostToolUse",
           tool_name: "Bash",
-          tool_input: { command: "" },
+          tool_input: { command: "", source: "ide-audit-sync" },
         },
       };
     }
@@ -196,9 +209,16 @@ function runCore(hookFile: string, input: Record<string, unknown>): { stdout: st
 
 const fwd = buildForward();
 if (fwd === null) {
+  hookDebug(dbgProjectDir, "kiro-adapter", "forward: null (no-op)", { target });
   process.exit(0);
   throw new Error("unreachable"); // narrows fwd for TS below
 }
+hookDebug(dbgProjectDir, "kiro-adapter", "forward", {
+  target,
+  hook: fwd.hook,
+  tool_name: fwd.input.tool_name ?? "",
+  file_path: (fwd.input.tool_input as { file_path?: string } | undefined)?.file_path ?? "",
+});
 
 if (fwd.hook === "__audit_and_sensors__") {
   // Two core hooks ride the same write event, in audit-then-sensors order

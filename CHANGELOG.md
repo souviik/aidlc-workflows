@@ -19,6 +19,20 @@ Re-copy your `dist/kiro-ide/.kiro/` to pick up the fix.
   `aidlc-runtime-compile`, and `aidlc-sync-statusline` now do real work on Kiro
   IDE. Artifact writes are audited, sensors run, the runtime graph recompiles on
   transitions, and `Current Stage` stays in sync.
+* **File paths are resolved relative to the workspace root.** Kiro IDE reports
+  the written path relative to the project root in the tool-result text; the
+  adapter resolves it to absolute so `audit-logger`'s record-root check passes
+  (previously it compared a relative path against an absolute root and dropped
+  every write).
+* **`aidlc-runtime-compile` and `aidlc-sync-statusline` are payload-free on the
+  IDE** — both gate on the audit tail (latest transition / latest
+  `STAGE_STARTED`) instead of the tool command or task payload the IDE does not
+  surface. `aidlc-sync-statusline` is wired to the `shell` tool event (the
+  `spec` event never fires in the IDE).
+* **Opt-in hook debug log.** Set `AIDLC_HOOK_DEBUG=1` to have every hook append
+  its decision path to `<record>/.aidlc-hooks-health/hook-debug.log`. Off by
+  default (no log, no overhead); see the Kiro IDE harness guide for enabling it
+  for IDE hooks.
 * **No new commands or flags.** The change is internal to the IDE adapter
   (`harness/kiro-ide/`) plus a shared audit-tail helper; the Kiro CLI, Claude
   Code, and Codex harnesses are untouched.
