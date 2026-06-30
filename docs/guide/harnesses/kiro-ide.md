@@ -68,15 +68,22 @@ JSON). Each `.kiro.hook` runs a command that routes through the shared
 `aidlc-kiro-adapter.ts` shim, which normalizes the IDE's hook event into the
 shape the byte-shared core hooks expect.
 
+The IDE delivers hook context through the **`USER_PROMPT` environment variable**
+(not stdin — the IDE opens stdin but never writes to it). `USER_PROMPT` is a JSON
+string `{ toolName, toolArgs, toolResult, toolSuccess }`. The IDE leaves
+`toolArgs` empty, so the adapter recovers the written file path from the
+`toolResult` text and drives the payload-free hooks (`runtime-compile`,
+`sync-statusline`) off the audit trail instead of a tool payload.
+
 | Hook | IDE event | Purpose |
 |------|-----------|---------|
 | `aidlc-session-start` | `promptSubmit` | Injects workflow resume context |
 | `aidlc-session-end` | `agentStop` | Emits `SESSION_ENDED` (observability) |
 | `aidlc-stop` | `agentStop` | Forwarding-loop continuation |
-| `aidlc-audit-logger` | `postToolUse` (write) | Logs artifact create/update |
-| `aidlc-sensor-fire` | `postToolUse` (write) | Fires applicable sensors |
-| `aidlc-runtime-compile` | `postToolUse` (shell) | Recompiles the runtime graph |
-| `aidlc-sync-statusline` | `postToolUse` (spec) | Syncs state on task transitions |
+| `aidlc-audit-logger` | `postToolUse` (write) | Logs artifact create/update (path from `toolResult`) |
+| `aidlc-sensor-fire` | `postToolUse` (write) | Fires applicable sensors (path from `toolResult`) |
+| `aidlc-runtime-compile` | `postToolUse` (shell) | Recompiles the runtime graph (gated on the audit tail) |
+| `aidlc-sync-statusline` | `postToolUse` (spec) | Syncs `Current Stage` from the latest `STAGE_STARTED` in the audit |
 
 You will see a "Run Command Hook" line in chat each time one fires.
 

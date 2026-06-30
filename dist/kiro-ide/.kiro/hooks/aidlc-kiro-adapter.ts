@@ -1,31 +1,40 @@
 #!/usr/bin/env bun
-// aidlc-kiro-adapter.ts — the Kiro CLI hook shim (AUTHORED shell file; the
+// aidlc-kiro-adapter.ts — the Kiro IDE hook shim (AUTHORED shell file; the
 // aidlc-*.ts hook bodies beside it are PACKAGED core, byte-shared with the
-// Claude Code harness).
+// Claude Code harness). This is the IDE-specific adapter; the CLI harness ships
+// its own (harness/kiro/) which reads stdin. They are deliberately separate
+// files so neither carries a runtime "am I CLI or IDE?" branch.
 //
-// Kiro hook payloads are near-isomorphic to Claude Code's but differ in
-// three load-bearing ways (live-captured on kiro-cli 2.6.1 — see
-// docs/spikes/dist-kiro/findings.md §0.2 in the framework repo):
-//   1. tool_name arrives as the ALIAS: `shell` (execute_bash), `write`
-//      (fs_write).
-//   2. the write payload's file path field is `path`, not `file_path`.
-//   3. `todo_list` input is command-shaped ({command: "create", tasks:
-//      [{task_description}]}) — there is no status/activeForm transition.
+// Kiro IDE hook context (live-captured on Kiro IDE 0.12-main — see
+// tmp/hook-probe-findings.md):
+//   1. stdin is OPENED BUT NEVER WRITTEN/CLOSED — reading it hangs. The IDE
+//      delivers context through the `USER_PROMPT` environment variable instead.
+//   2. USER_PROMPT is JSON: { toolName, toolArgs, toolResult, toolSuccess }.
+//      `toolArgs` is ALWAYS empty {} — the IDE never passes tool inputs. So the
+//      file path is recoverable ONLY from the `toolResult` prose, and the shell
+//      command is not recoverable at all (toolResult carries only stdout+exit).
+//   3. toolName arrives as the IDE tool name: `fs_write`, `str_replace`,
+//      `fs_append`, `execute_bash`, etc.
 //
-// This shim normalizes a Kiro payload into the ClaudeCodeHookInput shape the
-// core hooks parse, then pipes it into the named core hook (same directory)
-// as a bun subprocess, forwarding stdout and the exit code. Two outputs need
-// post-processing:
-//   - session-start emits {"additionalContext": "..."} — Kiro's context
-//     channel is plain stdout at exit 0, so the shim unwraps the JSON and
-//     prints the text.
-//   - stop emits {"decision":"block","reason":"..."} — Kiro's stop contract
-//     is IDENTICAL (verified live), so it passes through verbatim.
+// Consequences, by target:
+//   - audit-and-sensors: scrape the written file path from toolResult prose
+//     (strict patterns, fail-open) and feed the core hooks the Claude-shaped
+//     {tool_input:{file_path}}.
+//   - runtime-compile: the command is unrecoverable, so drop the command
+//     filter and always forward — the core hook self-gates on the audit tail.
+//   - state-sync: payload-independent — the core hook reads the latest
+//     STAGE_STARTED slug from the audit tail (no task payload needed).
+//   - session-start/session-end/stop/log-subagent: no file path / command
+//     needed; build the same fixed inputs as before.
 //
-// Usage (registered in .kiro/agents/aidlc.json):
+// session-start emits {"additionalContext": "..."} — Kiro's context channel is
+// plain stdout at exit 0, so the shim unwraps the JSON and prints the text.
+// stop emits {"decision":"block","reason":"..."} — passed through verbatim.
+//
+// Usage (registered in .kiro/hooks/*.kiro.hook):
 //   bun .kiro/hooks/aidlc-kiro-adapter.ts <target>
 // where <target> ∈ session-start | audit-and-sensors | runtime-compile |
-//                  state-sync | log-subagent | stop
+//                  state-sync | log-subagent | stop | session-end
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,50 +42,60 @@ import { fileURLToPath } from "node:url";
 const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
 const target = process.argv[2] ?? "";
 
-interface KiroHookInput {
-  hook_event_name?: string;
-  cwd?: string;
-  session_id?: string;
-  tool_name?: string;
-  tool_input?: Record<string, unknown>;
-  tool_response?: unknown;
-  prompt?: string;
-  assistant_response?: string;
+// The IDE hands hook context via the USER_PROMPT env var (NOT stdin). Shape:
+//   { toolName, toolArgs (always {}), toolResult, toolSuccess }
+interface IdeHookContext {
+  toolName?: string;
+  toolArgs?: Record<string, unknown>;
+  toolResult?: string;
+  toolSuccess?: boolean;
 }
 
-let kiro: KiroHookInput = {};
-if (!process.stdin.isTTY) {
-  try {
-    // Race stdin against a timeout. The IDE may open stdin but never write or
-    // close it, causing Bun.stdin.text() to hang forever. A 2s timeout covers
-    // the CLI case (payload arrives instantly) and avoids blocking the IDE.
-    const text = await Promise.race([
-      Bun.stdin.text(),
-      new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000)),
-    ]);
-    if (text.length > 0) kiro = JSON.parse(text) as KiroHookInput;
-  } catch {
-    process.exit(0); // malformed stdin — advisory hooks fail open
+let ide: IdeHookContext = {};
+{
+  const raw = process.env.USER_PROMPT ?? "";
+  if (raw.length > 0) {
+    try {
+      ide = JSON.parse(raw) as IdeHookContext;
+    } catch {
+      // Malformed context — advisory hooks fail open.
+      ide = {};
+    }
   }
 }
 
-// Normalize Kiro's alias tool names to the canonical names the core hooks
-// match on. Both alias and canonical forms are accepted defensively.
-function canonicalTool(name: string): string {
-  if (name === "write" || name === "fs_write") return "Write";
-  if (name === "shell" || name === "execute_bash") return "Bash";
-  return name;
+// Extract the absolute path of the file a write tool just touched from the
+// IDE's toolResult prose. toolArgs is always empty, so this is the ONLY source.
+// Strict: only the three known Kiro wordings match; anything else returns "" so
+// the caller fails open (no audit/sensor row for that write — advisory miss).
+//   fs_write    → "Created the <PATH> file."
+//   str_replace → "Replaced text in <PATH>"
+//   fs_append   → "Appended the text to the <PATH> file."
+function extractWrittenPath(toolResult: string): string {
+  let m = toolResult.match(/^Created the (.+) file\.$/);
+  if (m) return m[1];
+  m = toolResult.match(/^Replaced text in (.+)$/);
+  if (m) return m[1];
+  m = toolResult.match(/^Appended the text to the (.+) file\.$/);
+  if (m) return m[1];
+  return "";
+}
+
+// Map the IDE tool name to the canonical name the core hooks match on. Write
+// creates a (possibly new) file; str_replace/fs_append always target an
+// existing file → Edit (forces ARTIFACT_UPDATED in the core audit-logger).
+function canonicalWriteTool(name: string): "Write" | "Edit" | "" {
+  if (name === "fs_write") return "Write";
+  if (name === "str_replace" || name === "fs_append") return "Edit";
+  return "";
 }
 
 type Forward = { hook: string; input: Record<string, unknown> } | null;
 
 function buildForward(): Forward {
-  const tool = canonicalTool(kiro.tool_name ?? "");
-  const ti = kiro.tool_input ?? {};
-
   switch (target) {
     case "session-start":
-      // agentSpawn carries no source discrimination — every spawn is a
+      // promptSubmit carries no source discrimination — every submit is a
       // startup from the core hook's perspective; its state-file self-gate
       // makes this a no-op outside active workflows.
       return {
@@ -86,60 +105,62 @@ function buildForward(): Forward {
 
     case "audit-and-sensors": {
       // postToolUse(write) → audit-logger THEN sensor-fire (both ship core).
-      if (tool !== "Write") return null;
-      const filePath = (ti.path as string) ?? (ti.file_path as string) ?? "";
+      // The file path comes from the toolResult prose (toolArgs is empty).
+      const canon = canonicalWriteTool(ide.toolName ?? "");
+      if (canon === "") return null;
+      const filePath = extractWrittenPath(ide.toolResult ?? "");
       if (!filePath) return null;
       return {
         hook: "__audit_and_sensors__", // handled specially below (two hooks)
         input: {
           hook_event_name: "PostToolUse",
-          tool_name: "Write",
+          tool_name: canon,
           tool_input: { file_path: filePath },
         },
       };
     }
 
     case "runtime-compile": {
-      if (tool !== "Bash") return null;
+      // The IDE does not surface the shell command (toolResult is only
+      // stdout+exit), so the command filter cannot run here. Always forward:
+      // the core hook self-gates on the audit tail (idempotent + cheap), and
+      // its own MEMORY_EMPTY emit is not in the transition regex (no recursion).
       return {
         hook: "aidlc-runtime-compile.ts",
         input: {
           hook_event_name: "PostToolUse",
           tool_name: "Bash",
-          tool_input: { command: (ti.command as string) ?? "" },
+          tool_input: { command: "" },
         },
       };
     }
 
     case "state-sync": {
-      // Kiro's todo_list is command-shaped. A `create` whose first task
-      // description carries the stage-protocol "[slug]" suffix maps to the
-      // Claude TaskUpdate in_progress transition the core hook keys on.
-      if ((kiro.tool_name ?? "") !== "todo_list") return null;
-      if ((ti.command as string) !== "create") return null;
-      const tasks = (ti.tasks as Array<{ task_description?: string }>) ?? [];
-      const desc = tasks[0]?.task_description ?? "";
-      if (!desc) return null;
+      // Payload-independent. The IDE gives no task payload (toolArgs is empty),
+      // so instead of extracting a slug from the tool call, the core hook reads
+      // the latest STAGE_STARTED slug from the audit tail and reconciles the
+      // state file's Current Stage. The IDE_AUDIT_SYNC marker tells the core
+      // hook to take that audit-tail path rather than parse a TaskUpdate.
       return {
         hook: "aidlc-sync-statusline.ts",
         input: {
           hook_event_name: "PostToolUse",
           tool_name: "TaskUpdate",
-          tool_input: { status: "in_progress", activeForm: desc },
+          tool_input: { source: "ide-audit-sync" },
         },
       };
     }
 
     case "log-subagent": {
-      if ((kiro.tool_name ?? "") !== "subagent") return null;
-      const stages = (ti.stages as Array<{ role?: string }>) ?? [];
-      const roles = [...new Set(stages.map((s) => s.role ?? "unknown"))].join(",");
+      // The IDE surfaces no structured subagent roster in USER_PROMPT, so the
+      // core hook records a SUBAGENT_COMPLETED with the default agent_type.
+      // The event still anchors the subagent boundary in the audit trail.
       return {
         hook: "aidlc-log-subagent.ts",
         input: {
           hook_event_name: "SubagentStop",
-          agent_type: roles || "unknown",
-          agent_id: kiro.session_id ?? "",
+          agent_type: "unknown",
+          agent_id: "",
         },
       };
     }

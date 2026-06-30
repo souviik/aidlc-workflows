@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.5] - 2026-06-30
+
+Fixes the Kiro IDE harness's hooks, which previously no-op'd for everything that
+needed to know what the agent just did. Kiro IDE delivers hook context through
+the `USER_PROMPT` environment variable (not stdin, which it opens but never
+writes), and it leaves the tool arguments empty — so the IDE adapter now reads
+`USER_PROMPT`, recovers the written file path from the tool result text, and
+drives the command/payload-free hooks off the audit trail instead. The audit
+logger, sensor firing, runtime-graph recompile, and statusline sync now work in
+Kiro IDE without the agent having to compile the graph by hand. The Kiro CLI
+harness is unaffected (it uses a separate adapter and a working stdin channel).
+Re-copy your `dist/kiro-ide/.kiro/` to pick up the fix.
+
+* **Kiro IDE hooks fire correctly** — `aidlc-audit-logger`, `aidlc-sensor-fire`,
+  `aidlc-runtime-compile`, and `aidlc-sync-statusline` now do real work on Kiro
+  IDE. Artifact writes are audited, sensors run, the runtime graph recompiles on
+  transitions, and `Current Stage` stays in sync.
+* **No new commands or flags.** The change is internal to the IDE adapter
+  (`harness/kiro-ide/`) plus a shared audit-tail helper; the Kiro CLI, Claude
+  Code, and Codex harnesses are untouched.
+
 ## [2.1.4] - 2026-06-29
 
 Removes the `--test-run` flag and Test Run Mode entirely (issue #369). The flag let an agent auto-approve gates and skip the structured-question and learnings rituals, so an agent in an interactive session could rubber-stamp its own incomplete work by appending `--test-run`. The SDK and TUI test drivers answer gates the normal way (the SDK driver auto-answers each `AskUserQuestion`, the TUI driver drives the real gate), so the harness no longer needs an auto-approve bypass; the mechanism is removed rather than gated behind an env var. **Breaking:** `--test-run` is gone everywhere (the `report`/`approve`/`decision`/`answer` commands, the `/aidlc <scope> --test-run` slash form) and no longer does anything; the `enable-test-run` utility subcommand is removed and errors; the `TEST_RUN_MODE_ENABLED` audit event is removed. Any CI or script that passed `--test-run` or ran `enable-test-run` must drop them and drive gates normally. The artifact guard added in 2.1.3 (issue #366) previously listed `--test-run` as a bypass; with the flag gone its only bypass is now `AIDLC_SKIP_ARTIFACT_GUARD=1`. **Upgrade:** re-copy your `dist/<harness>/` shell into the project, remove `--test-run` / `enable-test-run` from any automation, and use `AIDLC_SKIP_ARTIFACT_GUARD=1` for synthetic CI runs that drive transitions against bare fixtures.

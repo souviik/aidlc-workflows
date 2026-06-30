@@ -2660,6 +2660,21 @@ export function findAllEvents(
   return results.map(({ timestamp, block }) => ({ timestamp, block }));
 }
 
+// Latest STAGE_STARTED slug in an audit buffer, or null if none. findAllEvents
+// returns events in chronological order (timestamp, then buffer position), so
+// the last STAGE_STARTED block is the most recent transition. The slug lives in
+// the block's `**Stage**:` field (appendAuditEntry writes the fields verbatim).
+// Payload-free derivation of "what stage are we on" — used by the Kiro IDE
+// sync-statusline path, where the hook receives no task payload and must read
+// the current stage from the audit tail instead.
+export function latestStartedStageSlug(audit: string): string | null {
+  const started = findAllEvents(audit, "STAGE_STARTED");
+  if (started.length === 0) return null;
+  const last = started[started.length - 1];
+  const m = last.block.match(/^\*\*Stage\*\*:\s*([a-z][a-z0-9-]*)\s*$/m);
+  return m ? m[1] : null;
+}
+
 // --- Data loaders ---
 
 const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "data");

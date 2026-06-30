@@ -1,13 +1,25 @@
-// PostToolUse hook: Sync aidlc-state.md on stage task activation
-// Triggered on TaskUpdate — extracts slug from activeForm "[slug]" suffix
-// Receives JSON on stdin from Claude Code
+// PostToolUse hook: Sync aidlc-state.md current stage.
+//
+// Two activation paths, distinguished by the payload:
+//   1. Claude Code / Kiro CLI — a TaskUpdate carrying status + activeForm
+//      "[slug]". Fires on transition to in_progress; the slug comes from the
+//      activeForm suffix.
+//   2. Kiro IDE — the IDE gives no task payload (toolArgs is empty), so the
+//      adapter sends tool_input.source = "ide-audit-sync" and this hook reads
+//      the latest STAGE_STARTED slug from the audit tail instead. Payload-free.
+// In both cases the slug is reconciled into the state file via set-status.
+// Receives JSON on stdin from the adapter / Claude Code.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type ClaudeCodeHookInput,
+  getField,
   hooksHealthDir,
   isClaudeCodeHookInput,
   isoTimestamp,
+  latestStartedStageSlug,
+  readAllAuditShards,
+  readStateFile,
   resolveProjectDirFromHook,
   stateFilePath,
   harnessDir,
@@ -29,22 +41,33 @@ try {
   process.exit(0);
 }
 
-const status = parsed.tool_input?.status ?? "";
-
-// Only fire when a task transitions to in_progress
-if (status !== "in_progress") process.exit(0);
-
-const activeForm: string = parsed.tool_input?.activeForm ?? "";
-if (!activeForm) process.exit(0);
-
-// Extract slug from "[slug]" suffix in activeForm
-const slugMatch = activeForm.match(/\[([a-z][a-z0-9-]*)\]$/);
-if (!slugMatch) process.exit(0);
-const slug = slugMatch[1];
-
 // State file must exist (won't exist before handleInit runs)
 const stateFile = stateFilePath(projectDir);
 if (!existsSync(stateFile)) process.exit(0);
+
+// Resolve the target slug by activation path.
+let slug = "";
+const source = parsed.tool_input?.source ?? "";
+if (source === "ide-audit-sync") {
+  // Kiro IDE path: derive the current stage from the audit tail. Only update
+  // when it actually differs from the state file's Current Stage (idempotent —
+  // the hook fires on every tool call, so a no-op on no-change is the norm).
+  const audit = readAllAuditShards(projectDir);
+  const auditSlug = latestStartedStageSlug(audit);
+  if (!auditSlug) process.exit(0);
+  const current = getField(readStateFile(projectDir), "Current Stage");
+  if (current === auditSlug) process.exit(0);
+  slug = auditSlug;
+} else {
+  // Claude Code / Kiro CLI path: TaskUpdate → in_progress with "[slug]" suffix.
+  const status = parsed.tool_input?.status ?? "";
+  if (status !== "in_progress") process.exit(0);
+  const activeForm: string = parsed.tool_input?.activeForm ?? "";
+  if (!activeForm) process.exit(0);
+  const slugMatch = activeForm.match(/\[([a-z][a-z0-9-]*)\]$/);
+  if (!slugMatch) process.exit(0);
+  slug = slugMatch[1];
+}
 
 // Health heartbeat
 const healthDir = hooksHealthDir(projectDir);
