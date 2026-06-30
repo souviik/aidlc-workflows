@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { resolveDriveSdkSettings } from "../harness/sdk-drive.ts";
 
 const SHIPPED_MODEL = "opus[1m]";
-const SHIPPED_OPUS = "global.anthropic.claude-opus-4-8";
+const SHIPPED_OPUS = "global.anthropic.claude-opus-4-8[1m]";
 
 function withTempProject(assertions: (projectDir: string) => void): void {
   const projectDir = mkdtempSync(join(tmpdir(), "aidlc-sdk-model-"));

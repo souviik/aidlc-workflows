@@ -39,12 +39,15 @@
 //     .model                               — "opus[1m]" orchestrator pin
 //     .env.CLAUDE_CODE_USE_BEDROCK         — "1" (Bedrock enabled)
 //     .env.AWS_REGION                      — non-empty (Bedrock requires it)
-//     .env.ANTHROPIC_DEFAULT_FABLE_MODEL   — "global.anthropic.claude-fable-5"
-//     .env.ANTHROPIC_DEFAULT_OPUS_MODEL    — "global.anthropic.claude-opus-4-8"
+//     .env.ANTHROPIC_DEFAULT_FABLE_MODEL   — "global.anthropic.claude-fable-5[1m]"
+//     .env.ANTHROPIC_DEFAULT_OPUS_MODEL    — "global.anthropic.claude-opus-4-8[1m]"
 //       (global. since v0.6.5: the us. regional profile fails under Bedrock's
 //        provider_data_share retention mode; global. works under every mode)
-//     .env.ANTHROPIC_DEFAULT_SONNET_MODEL  — "global.anthropic.claude-sonnet-4-6"
+//       ([1m]: the 1M-context variant, so tier-pinned subagents get 1M too —
+//        Claude Code strips the suffix before the model ID reaches Bedrock)
+//     .env.ANTHROPIC_DEFAULT_SONNET_MODEL  — "global.anthropic.claude-sonnet-4-6[1m]"
 //     .env.ANTHROPIC_DEFAULT_HAIKU_MODEL   — "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+//       (no [1m]: Haiku 4.5 is a 200K model with no 1M variant)
 //
 // Old TAP -> new test parity (1:1, all 16 .sh assertions; no guarantee dropped):
 //   .sh 1      jq empty (valid JSON)                       -> "settings.json is valid JSON"
@@ -155,16 +158,16 @@ describe("Bedrock env block [.sh tests 12-16 + Fable pin]", () => {
   });
 
   test("env.ANTHROPIC_DEFAULT_FABLE_MODEL is pinned", () => {
-    expect(env.ANTHROPIC_DEFAULT_FABLE_MODEL).toBe("global.anthropic.claude-fable-5");
+    expect(env.ANTHROPIC_DEFAULT_FABLE_MODEL).toBe("global.anthropic.claude-fable-5[1m]");
   });
 
   test("env.ANTHROPIC_DEFAULT_OPUS_MODEL is pinned [.sh test 14]", () => {
-    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe("global.anthropic.claude-opus-4-8");
+    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe("global.anthropic.claude-opus-4-8[1m]");
   });
 
   test("env.ANTHROPIC_DEFAULT_SONNET_MODEL is pinned [.sh test 15]", () => {
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe(
-      "global.anthropic.claude-sonnet-4-6",
+      "global.anthropic.claude-sonnet-4-6[1m]",
     );
   });
 
