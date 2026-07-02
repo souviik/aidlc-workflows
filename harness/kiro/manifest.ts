@@ -37,6 +37,10 @@ const manifest: HarnessManifest = {
     { src: "skills/aidlc-session-cost", dst: "skills/aidlc-session-cost" },
     { src: "skills/aidlc-replay", dst: "skills/aidlc-replay" },
     { src: "skills/aidlc-outcomes-pack", dst: "skills/aidlc-outcomes-pack" },
+    // Harness-neutral capability skills: QA/testing knowledge bundles the
+    // quality agent invokes via the Skill tool (Tier 2 knowledge points here).
+    { src: "skills/aidlc-web-test-automation", dst: "skills/aidlc-web-test-automation" },
+    { src: "skills/aidlc-mobile-test-automation", dst: "skills/aidlc-mobile-test-automation" },
   ],
 
   // Authored Kiro shell surfaces. These carry literal `.kiro` (harness-specific

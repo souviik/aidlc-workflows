@@ -93,6 +93,15 @@ const BASE_SKILLS = [
   "aidlc-session-cost",
 ];
 
+// --- Capability skills: harness-neutral, on-demand knowledge bundles invoked
+// via the Skill tool (not runners — no `--stage … --single` marker, so the
+// runner-gen drift guard never treats them as orphan stage-runners). The
+// quality agent's team-knowledge dir points at these by name.
+const CAPABILITY_SKILLS = [
+  "aidlc-web-test-automation",
+  "aidlc-mobile-test-automation",
+];
+
 // --- The first-batch generated scope-runner dirs. IMPORTED from the generator
 // (aidlc-runner-gen.ts FIRST_BATCH), not hardcoded — the .sh hardcoded the same
 // four in SCOPE_RUNNER_SKILLS; tracking the constant is the stronger contract.
@@ -115,6 +124,7 @@ const INIT_RUNNER_SKILL = "aidlc-init";
 
 const EXPECTED_SKILLS = [
   ...BASE_SKILLS,
+  ...CAPABILITY_SKILLS,
   ...SCOPE_RUNNER_SKILLS,
   ...RUNNER_SKILLS,
   INIT_RUNNER_SKILL,

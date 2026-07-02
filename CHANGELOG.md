@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-07-02
+
+Adds two on-demand **capability skills** for QA test automation — `aidlc-web-test-automation` (Playwright-first web/E2E) and `aidlc-mobile-test-automation` (Maestro/Appium-first, with AWS Device Farm guidance) — adapted from the AWS RAMP AI-DLC starter packs (MIT-0). They ship to every harness under the skills directory (`.claude/skills/`, `.kiro/skills/`, Codex `.agents/skills/`) and the `aidlc-quality-agent` reads them: the space-level team-knowledge dir carries thin pointer stubs that direct the agent to invoke the skill by name for full guidance, so the content is not duplicated. A behavior-first `regression-testing-strategy.md` (pre-upgrade tier system) is added to the same team-knowledge dir. **Upgrade:** re-copy your `dist/<harness>/` shell into the project to pick up the two new skills; no workflow, stage, scope, or state changes.
+
+* New skills `aidlc-web-test-automation` and `aidlc-mobile-test-automation` appear in the skill picker on every harness; the quality agent invokes them (explicit invocation only) when designing test suites. They are capability skills, not stage/scope runners — they never drive the engine.
+* `aidlc-quality-agent` team knowledge gains pointer stubs (`aidlc-web-test-automation.md`, `aidlc-mobile-test-automation.md`) and the full `regression-testing-strategy.md`; each stub names the skill to invoke rather than copying its `references/`.
+* No breaking changes: no stage, scope, sensor, agent, runner, or audit-event changes.
+
 ## [2.1.4] - 2026-06-29
 
 Removes the `--test-run` flag and Test Run Mode entirely (issue #369). The flag let an agent auto-approve gates and skip the structured-question and learnings rituals, so an agent in an interactive session could rubber-stamp its own incomplete work by appending `--test-run`. The SDK and TUI test drivers answer gates the normal way (the SDK driver auto-answers each `AskUserQuestion`, the TUI driver drives the real gate), so the harness no longer needs an auto-approve bypass; the mechanism is removed rather than gated behind an env var. **Breaking:** `--test-run` is gone everywhere (the `report`/`approve`/`decision`/`answer` commands, the `/aidlc <scope> --test-run` slash form) and no longer does anything; the `enable-test-run` utility subcommand is removed and errors; the `TEST_RUN_MODE_ENABLED` audit event is removed. Any CI or script that passed `--test-run` or ran `enable-test-run` must drop them and drive gates normally. The artifact guard added in 2.1.3 (issue #366) previously listed `--test-run` as a bypass; with the flag gone its only bypass is now `AIDLC_SKIP_ARTIFACT_GUARD=1`. **Upgrade:** re-copy your `dist/<harness>/` shell into the project, remove `--test-run` / `enable-test-run` from any automation, and use `AIDLC_SKIP_ARTIFACT_GUARD=1` for synthetic CI runs that drive transitions against bare fixtures.

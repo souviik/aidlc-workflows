@@ -50,8 +50,9 @@ Create `harness/<name>/manifest.ts` exporting a `HarnessManifest`
 - `name` / `harnessDir` — the dir the token substitutes to (e.g. `.foo`).
 - `coreDirs: DirMap[]` — which `core/<src>` dirs project into `<harnessDir>/<dst>`.
   Rename or drop dirs here (Kiro `rules → steering`; Codex `rules → aidlc-rules`
-  and drops `skills/` — see emit). The 3 session skills are core dirs for
-  in-tree harnesses (claude, kiro); codex emits them instead.
+  and drops `skills/` — see emit). The 3 session skills + 2 capability skills
+  (`aidlc-web-test-automation`, `aidlc-mobile-test-automation`) are core dirs for in-tree
+  harnesses (claude, kiro); codex emits them instead.
 - `harnessFiles: FileMap[]` — authored surfaces copied verbatim from
   `harness/<name>/<src>` into the dist (`.md` get token substitution).
   `projectRoot: true` lands a file beside the harness dir (e.g. `AGENTS.md`).

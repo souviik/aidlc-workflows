@@ -345,8 +345,11 @@ export default function emit(ctx: EmitContext): EmitResult {
     emissions.push({ path: join(dir, "SKILL.md"), content: () => rewriteProse(gen.renderRunner(scope, scopes[scope].description)) });
     emissions.push({ path: join(dir, "agents", "openai.yaml"), content: () => IMPLICIT_GUARD });
   }
-  // (d) session skills — byte-copy + prose rewrite from core/skills/
-  for (const skill of ["aidlc-session-cost", "aidlc-replay", "aidlc-outcomes-pack"]) {
+  // (d) session + capability skills — byte-copy + prose rewrite from core/skills/.
+  // Codex has no manifest coreDirs, so any core/skills/<name> shipped to other
+  // harnesses must be listed here too, or its .agents/skills/<name> is missing
+  // (and any Tier 2 pointer naming it dangles on Codex).
+  for (const skill of ["aidlc-session-cost", "aidlc-replay", "aidlc-outcomes-pack", "aidlc-web-test-automation", "aidlc-mobile-test-automation"]) {
     const srcDir = join(coreRoot, "skills", skill);
     if (!existsSync(srcDir)) continue;
     for (const file of walk(srcDir)) {

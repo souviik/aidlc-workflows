@@ -3,7 +3,9 @@
 // t123 (smoke) — Agent-Skills-spec structural conformance over EVERY shipped
 // skill dir under dist/claude/.claude/skills/. Migrated from
 // tests/smoke/t123-skills-spec-conformance.sh (TAP plan: 1 dir-count guard +
-// 5 structural assertions per skill = 1 + 5×38 = 191 assertions).
+// 5 structural assertions per skill). The original .sh shipped 38 skills
+// (1 + 5×38 = 191 assertions); v2.2.0 adds 2 capability skills
+// (aidlc-{web,mobile}-test-automation) → 40 skills, 1 + 5×40 = 201.
 //
 // Mechanism: none. There is no tool / process / argv seam under test — the
 // subject IS the on-disk shape of the shipped skill set and the bytes of each
@@ -21,6 +23,8 @@
 // Subject under test (the shipped skill set + each SKILL.md):
 //   dist/claude/.claude/skills/<skill>/SKILL.md — for the DERIVED expected set:
 //     - 4 base skills (orchestrator + 3 read-only session skills)
+//     - 2 capability skills (aidlc-{web,mobile}-test-automation) — on-demand knowledge
+//       bundles, listed explicitly like the base skills (not graph-derived)
 //     - the generator's FIRST_BATCH scope-runners (aidlc-runner-gen.ts:307,
 //       imported here, not hardcoded)
 //     - one aidlc-<slug> per RUNNABLE compiled stage (every stage whose
@@ -80,6 +84,15 @@ const BASE_SKILLS = [
   "aidlc-session-cost",
 ];
 
+// --- Capability skills: harness-neutral, on-demand knowledge bundles invoked
+// via the Skill tool (not runners — they carry no `--stage … --single` marker,
+// so the runner-gen drift guard never treats them as orphan stage-runners).
+// The quality agent's team-knowledge dir points at these by name.
+const CAPABILITY_SKILLS = [
+  "aidlc-web-test-automation",
+  "aidlc-mobile-test-automation",
+];
+
 // --- The first-batch generated scope-runner dirs. IMPORTED from the generator
 // (aidlc-runner-gen.ts FIRST_BATCH), not hardcoded — the .sh hardcoded the same
 // four in SCOPE_RUNNER_SKILLS; tracking the constant is the stronger contract.
@@ -102,6 +115,7 @@ const INIT_RUNNER_SKILL = "aidlc-init";
 
 const EXPECTED_SKILLS = [
   ...BASE_SKILLS,
+  ...CAPABILITY_SKILLS,
   ...SCOPE_RUNNER_SKILLS,
   ...RUNNER_SKILLS,
   INIT_RUNNER_SKILL,

@@ -20,6 +20,7 @@ Every command this implementation ships is a skill under `.claude/skills/`. They
 - **Stage-runners** — `/aidlc-application-design`, `/aidlc-code-generation`, and 27 more. Run one stage in isolation, never touching your main workflow.
 - **`/aidlc-init`** — birth the first intent (run the whole Initialization phase) in one step; opt-in packaging over the engine's auto-birth.
 - **Session skills** — `/aidlc-session-cost`, `/aidlc-replay`, `/aidlc-outcomes-pack`. Read-only views over a workflow; covered in [Session Management](11-session-management.md).
+- **Capability skills** — `aidlc-web-test-automation`, `aidlc-mobile-test-automation`. Not runners: on-demand knowledge bundles (Playwright/Maestro/Appium best practice) the quality agent invokes when designing test suites. Unlike the runners above they don't drive the engine — they load reference guidance. The `aidlc-quality-agent` team-knowledge dir points at them.
 
 Everything a runner does is reachable from `/aidlc` with a flag. The runners are packaging — typing `/aidlc-bugfix` and seeing it in your `/` menu is good ergonomics, nothing more. Delete every runner and the shortcuts go; the capability stays, reachable through `/aidlc` flags.
 

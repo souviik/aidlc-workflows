@@ -12,6 +12,17 @@ Files here are loaded at step 8 of the knowledge loading order (per-agent `labco
 4. [labcorp-release-qualification-record.md](labcorp-release-qualification-record.md) — per-release qualification / CHG handoff
 5. [labcorp-test-automation-strategies.md](labcorp-test-automation-strategies.md) — automation reference during Construction and Stage **3.6**
 
+## Automated testing (RAMP starter-pack adaptation)
+
+For designing/writing automated test suites, these bundles cover web, mobile,
+and pre-upgrade regression. The web and mobile files are **pointers** — the full
+guidance lives in invokable skills (single source of record); invoke the skill
+by name for the complete `references/` tree.
+
+- [aidlc-web-test-automation.md](aidlc-web-test-automation.md) — web/E2E essence; **invoke the `aidlc-web-test-automation` skill** for full guidance (Playwright-first)
+- [aidlc-mobile-test-automation.md](aidlc-mobile-test-automation.md) — mobile essence; **invoke the `aidlc-mobile-test-automation` skill** for full guidance (Maestro/Appium-first, AWS Device Farm)
+- [regression-testing-strategy.md](regression-testing-strategy.md) — pre-upgrade tier strategy (Tier 1 API+E2E / Tier 2 pure logic / Tier 3 integration); full content, no skill peer
+
 ## Files in this directory
 
 ### Stage map and templates
@@ -24,6 +35,12 @@ Files here are loaded at step 8 of the knowledge loading order (per-agent `labco
 ### Reference
 
 - [labcorp-test-automation-strategies.md](labcorp-test-automation-strategies.md) — test pyramid, tooling, CI integration
+
+### Automated-testing bundles (RAMP adaptation)
+
+- [aidlc-web-test-automation.md](aidlc-web-test-automation.md) — pointer stub → `aidlc-web-test-automation` skill
+- [aidlc-mobile-test-automation.md](aidlc-mobile-test-automation.md) — pointer stub → `aidlc-mobile-test-automation` skill
+- [regression-testing-strategy.md](regression-testing-strategy.md) — full content; behavior-first tier strategy for pre-upgrade regression suites
 
 ## Living artifacts
 
