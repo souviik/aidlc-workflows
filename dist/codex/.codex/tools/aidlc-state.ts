@@ -18,6 +18,9 @@ import {
   firstInScopeStageOfPhase,
   getField,
   holdsAuditLock,
+  humanActedSinceGate,
+  humanPresenceGuardDisabled,
+  isAutonomousMode,
   isoTimestamp,
   loadScopeMapping,
   nextInScopeStage,
@@ -1305,6 +1308,29 @@ function handleApprove(args: string[]): void {
   // construction/<unit>/<slug>/) and code-producing stages (workspace_requires).
   verifyStageArtifacts(pd, stage);
 
+  // Human-presence guard: a gate cannot be approved unless a real
+  // human acted at THIS gate since the last gate resolution. Runs BEFORE any
+  // mutation so a refusal (error() -> exit) leaves state untouched (same slot
+  // as the artifact guard above). Carve-outs FIRST: autonomous Construction
+  // (swarm / Bolt) and the suite-wide test bypass never require presence.
+  if (isAutonomousMode(content)) {
+    // skip the presence check — autonomous Construction has no human at the gate
+  } else if (humanPresenceGuardDisabled()) {
+    // skip — suite-wide deterministic off-switch (AIDLC_SKIP_HUMAN_PRESENCE_GUARD)
+  } else if (!humanActedSinceGate(pd)) {
+    // Ledger-event presence check: refuse unless a HUMAN_TURN event was appended
+    // AFTER the last gate resolution (GATE_APPROVED / GATE_REJECTED /
+    // QUESTION_ANSWERED) in ledger order - the boundary is the prior resolution,
+    // NOT this gate's open event (one human turn drives both open and approve).
+    // Cascade-safety + freshness fall out of order; no marker file / turn counter.
+    error(
+      `Refusing to approve "${slug}": a real human has not acted at this gate ` +
+        `since it opened. The approval gate requires a typed human turn before it ` +
+        `can commit. Acknowledge the gate as a human, then approve. (autonomous ` +
+        `Construction is exempt)`
+    );
+  }
+
   const timestamp = isoTimestamp();
 
   content = setCheckbox(content, slug, "completed");
@@ -1346,6 +1372,11 @@ function handleApprove(args: string[]): void {
     );
   }
 
+  // No explicit consume step (ledger-event design): the GATE_APPROVED
+  // emitted by this commit IS the freshness boundary for the next gate. A second
+  // gate auto-cascaded in the same human turn finds the last gate resolution
+  // (this GATE_APPROVED) AFTER the only HUMAN_TURN, so humanActedSinceGate refuses
+  // it — one commit per human turn, from ledger order, with no marker to flip.
   const next = nextInScopeStage(slug, scope, content);
   if (next) {
     // Delegate to handleAdvance. The slug is now [x], so handleAdvance takes

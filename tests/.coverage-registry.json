@@ -20,18 +20,18 @@
     "render-surface": "tui"
   },
   "counts": {
-    "total": 396,
+    "total": 405,
     "enumeratedByClass": {
-      "function": 187,
-      "audit": 68,
+      "function": 194,
+      "audit": 69,
       "scope": 9,
       "stage": 32,
-      "hook": 10,
+      "hook": 11,
       "subcommand": 83,
       "render-surface": 7
     },
     "coveredByClass": {
-      "function": 80,
+      "function": 85,
       "audit": 29,
       "scope": 9,
       "stage": 8,
@@ -182,6 +182,13 @@
     {
       "unitClass": "audit",
       "unitId": "HEALTH_CHECKED",
+      "minMechanism": "none",
+      "coveredBy": [],
+      "status": "UNCOVERED"
+    },
+    {
+      "unitClass": "audit",
+      "unitId": "HUMAN_TURN",
       "minMechanism": "none",
       "coveredBy": [],
       "status": "UNCOVERED"
@@ -848,6 +855,13 @@
     },
     {
       "unitClass": "function",
+      "unitId": "function:auditBlockField",
+      "minMechanism": "none",
+      "coveredBy": [],
+      "status": "UNCOVERED"
+    },
+    {
+      "unitClass": "function",
       "unitId": "function:auditFilePath",
       "minMechanism": "none",
       "coveredBy": [
@@ -924,6 +938,13 @@
         }
       ],
       "status": "covered"
+    },
+    {
+      "unitClass": "function",
+      "unitId": "function:AUTONOMY_MODE_FIELD",
+      "minMechanism": "none",
+      "coveredBy": [],
+      "status": "UNCOVERED"
     },
     {
       "unitClass": "function",
@@ -1342,6 +1363,18 @@
     },
     {
       "unitClass": "function",
+      "unitId": "function:hasOpenGate",
+      "minMechanism": "none",
+      "coveredBy": [
+        {
+          "file": "tests/unit/t188-human-presence-gate.test.ts",
+          "mechanism": "cli"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "unitClass": "function",
       "unitId": "function:holdsAuditLock",
       "minMechanism": "none",
       "coveredBy": [
@@ -1362,6 +1395,42 @@
       "minMechanism": "none",
       "coveredBy": [],
       "status": "UNCOVERED"
+    },
+    {
+      "unitClass": "function",
+      "unitId": "function:humanActedSinceGate",
+      "minMechanism": "none",
+      "coveredBy": [
+        {
+          "file": "tests/unit/t188-human-presence-gate.test.ts",
+          "mechanism": "cli"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "unitClass": "function",
+      "unitId": "function:humanActedSinceLastAnswer",
+      "minMechanism": "none",
+      "coveredBy": [
+        {
+          "file": "tests/unit/t188-human-presence-gate.test.ts",
+          "mechanism": "cli"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "unitClass": "function",
+      "unitId": "function:humanPresenceGuardDisabled",
+      "minMechanism": "none",
+      "coveredBy": [
+        {
+          "file": "tests/unit/t188-human-presence-gate.test.ts",
+          "mechanism": "cli"
+        }
+      ],
+      "status": "covered"
     },
     {
       "unitClass": "function",
@@ -1402,6 +1471,18 @@
       "minMechanism": "none",
       "coveredBy": [],
       "status": "UNCOVERED"
+    },
+    {
+      "unitClass": "function",
+      "unitId": "function:isAutonomousMode",
+      "minMechanism": "none",
+      "coveredBy": [
+        {
+          "file": "tests/unit/t188-human-presence-gate.test.ts",
+          "mechanism": "cli"
+        }
+      ],
+      "status": "covered"
     },
     {
       "unitClass": "function",
@@ -2618,6 +2699,13 @@
         }
       ],
       "status": "covered"
+    },
+    {
+      "unitClass": "hook",
+      "unitId": "aidlc-mint-presence",
+      "minMechanism": "none",
+      "coveredBy": [],
+      "status": "UNCOVERED"
     },
     {
       "unitClass": "hook",

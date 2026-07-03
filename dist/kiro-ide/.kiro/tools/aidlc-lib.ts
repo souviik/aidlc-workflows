@@ -1322,6 +1322,99 @@ function cloneId(projectDir: string): string {
   return _cloneId;
 }
 
+// --- Human presence at an approval/interview gate ---
+//
+// Ledger-event presence check (the marker-free design). A real human
+// is present for THIS gate-commit iff a HUMAN_TURN event appears AFTER the LAST
+// GATE RESOLUTION (GATE_APPROVED / GATE_REJECTED / QUESTION_ANSWERED) in ledger
+// append order. The prior resolution is the freshness boundary - this is the
+// consume-once semantics expressed as event order instead of a flag.
+//
+// Why the boundary is the prior RESOLUTION, not this gate's STAGE_AWAITING_APPROVAL
+// (the live Kiro IDE spike, 2026-06-30, caught this): in the real flow ONE human
+// prompt drives the agent to BOTH open the gate AND approve it, so the human turn
+// PRECEDES this gate-open. A "human turn after gate-open" rule false-refuses every
+// legitimate approval. But a human turn after the prior gate's resolution still
+// proves a fresh human acted this turn, while a fabricated cascade (gate2 approved
+// right after gate1 committed, no new human turn) has its only human turn BEFORE
+// the gate1 GATE_APPROVED -> refused. Stale (human turn long ago, then a fabricated
+// approve) likewise has the last resolution after the human turn -> refused.
+//
+// Ordering is CHRONOLOGICAL (Timestamp, then buffer position as the tiebreak),
+// matching findAllEvents: readAllAuditShards concatenates per-clone shards in
+// FILENAME order, so the raw buffer is NOT time-ordered across shards (a second
+// shard appears after a re-clone or on another machine) and a raw-position scan
+// could rank an OLD resolution from a lexically-later shard above a fresh
+// HUMAN_TURN. Within one shard the timestamps are non-decreasing and the position
+// tiebreak preserves append order, which is what makes same-second events (the
+// common case: one human turn drives mint + gate + resolution inside one second)
+// resolve by execution order. Fail-open when no ledger exists (no presence
+// tracking yet on this harness).
+//
+// The resolution boundary is workflow-global (the most recent commit of ANY
+// gate), which is what makes a same-turn cascade across DIFFERENT stages refuse
+// correctly; there is no per-stage scoping.
+const GATE_RESOLUTION_EVENTS = new Set(["GATE_APPROVED", "GATE_REJECTED", "QUESTION_ANSWERED"]);
+export function humanActedSinceGate(projectDir: string): boolean {
+  const audit = readAllAuditShards(projectDir);
+  if (audit.length === 0) return true; // no ledger → no presence tracking → fail open
+  const blocks = audit.replace(/\r\n/g, "\n").split(/\n---\n/);
+  const events: { ts: string; pos: number; human: boolean }[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const ev = auditBlockField(blocks[i], "Event");
+    if (!ev) continue;
+    if (!GATE_RESOLUTION_EVENTS.has(ev) && ev !== "HUMAN_TURN") continue;
+    events.push({
+      ts: auditBlockField(blocks[i], "Timestamp") ?? "",
+      pos: i,
+      human: ev === "HUMAN_TURN",
+    });
+  }
+  events.sort((a, b) => {
+    if (a.ts !== b.ts) return a.ts < b.ts ? -1 : 1;
+    return a.pos - b.pos;
+  });
+  let lastResolution = -1;
+  let lastHuman = -1;
+  for (let i = 0; i < events.length; i++) {
+    if (events[i].human) lastHuman = i;
+    else lastResolution = i;
+  }
+  // A human turn appears after the last gate resolution (or there is a human turn
+  // and no resolution yet) => a fresh human acted this turn => allow.
+  return lastHuman > lastResolution && lastHuman !== -1;
+}
+
+// True when any stage sits at [?] (awaiting-approval) in the state file: the
+// "a gate is actually OPEN" predicate for the per-harness preToolUse floors.
+// Without it a floor would keep refusing tool calls AFTER a legitimate approval
+// (the resolution then follows the turn's only HUMAN_TURN), blocking the
+// same-turn continuation the stage protocol mandates.
+export function hasOpenGate(stateContent: string | null): boolean {
+  if (!stateContent) return false;
+  return parseCheckboxes(stateContent).some((c) => c.state === "awaiting-approval");
+}
+
+// The interview path (handleAnswer) uses the SAME resolution-boundary check: a
+// QUESTION_ANSWERED is itself a gate resolution, so "a human turn since the last
+// resolution" gives one-answer-per-human-turn for free. Thin alias for call-site
+// readability; both paths share one definition so the predicate cannot drift.
+export function humanActedSinceLastAnswer(projectDir: string): boolean {
+  return humanActedSinceGate(projectDir);
+}
+
+// Read a `**Field**: value` line from one audit block (tolerates an optional
+// leading `- ` so it serves both audit blocks and the state file). Mirrors the
+// per-tool private auditField readers; shared here for humanActedSinceGate.
+export function auditBlockField(block: string, fieldName: string): string | null {
+  const prefix = `**${fieldName}**:`;
+  for (const raw of block.split("\n")) {
+    const line = raw.startsWith("- ") ? raw.slice(2) : raw;
+    if (line.startsWith(prefix)) return line.slice(prefix.length).trim();
+  }
+  return null;
+}
+
 // This clone's audit shard filename: `<host>-<clone-id>.md`. The clone-id token
 // (not the PID) is the cross-clone disambiguator — stable across every process
 // in a clone (so the fork process and the merge process resolve ONE shard) and
@@ -1921,6 +2014,27 @@ export function getField(content: string, field: string): string | null {
   );
   const match = content.match(regex);
   return match ? match[1].trim() : null;
+}
+
+// --- Autonomy mode ---
+//
+// The state-file field that distinguishes autonomous Construction (swarm/Bolt)
+// from interactive flow. Promoted to ONE exported predicate so the human-
+// presence gate's carve-out and the existing open-coded `=== "autonomous"`
+// sites cannot drift. (This PR uses the helper only at the NEW gate sites;
+// refactoring the existing open-coded sites is a tracked follow-up.)
+export const AUTONOMY_MODE_FIELD = "Construction Autonomy Mode";
+
+export function isAutonomousMode(stateContent: string | null): boolean {
+  return !!stateContent && getField(stateContent, AUTONOMY_MODE_FIELD)?.trim() === "autonomous";
+}
+
+// Deterministic off-switch for the human-presence gate (mirrors
+// artifactGuardDisabled in aidlc-state.ts). The suite sets this globally (the
+// dedicated guard test clears it), and it is the documented bypass for
+// synthetic CI runs that drive approve/answer against bare fixtures.
+export function humanPresenceGuardDisabled(): boolean {
+  return process.env.AIDLC_SKIP_HUMAN_PRESENCE_GUARD === "1";
 }
 
 export function setField(content: string, field: string, value: string): string {

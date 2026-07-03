@@ -4,11 +4,14 @@
 // (after the user answers). Orchestrator-callable; state tool doesn't own
 // these because they fire per-question, not per state transition.
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { appendAuditEntry } from "./aidlc-audit.ts";
 import {
   emitError,
   errorMessage,
+  humanActedSinceLastAnswer,
+  humanPresenceGuardDisabled,
+  isAutonomousMode,
   resolveProjectDir,
   stateFilePath,
 } from "./aidlc-lib.js";
@@ -114,6 +117,26 @@ function handleAnswer(args: string[]): void {
     Stage: flags.stage,
     Details: flags.details,
   };
+
+  // Human-presence gate (ledger-event design): the interview answer is
+  // a human-judgement event, so require a HUMAN_TURN appended AFTER the last
+  // QUESTION_ANSWERED (ledger order) before recording another. The prior
+  // QUESTION_ANSWERED is the "since" boundary (its own consume-once: one human turn
+  // logs one answer), so no separate marker/consume step is needed. Autonomy
+  // carve-out FIRST (Construction swarm/Bolt answers are not human), then the scoped
+  // test off-switch. Fail-open when no ledger exists (presence not tracked yet).
+  const content = existsSync(stateFilePath(pd))
+    ? readFileSync(stateFilePath(pd), "utf-8")
+    : null;
+  if (isAutonomousMode(content)) {
+    // autonomous Construction: no human presence required
+  } else if (humanPresenceGuardDisabled()) {
+    // scoped test off-switch
+  } else if (!humanActedSinceLastAnswer(pd)) {
+    error(
+      "Refusing to record this answer: a real human has not acted at this checkpoint this turn. Type your answer in the session (which records a human turn) before logging it."
+    );
+  }
 
   try {
     emitAudit(pd, "QUESTION_ANSWERED", fields);
